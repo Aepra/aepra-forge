@@ -1,0 +1,23 @@
+# Node.js / Next.js (Frontend)
+apps/frontend/node_modules/
+apps/frontend/.next/
+apps/frontend/out/
+apps/frontend/.env
+apps/frontend/.env.local
+
+# Python / FastAPI (Backend)
+apps/backend/venv/
+apps/backend/__pycache__/
+apps/backend/*.pyc
+apps/backend/.env
+apps/backend/.pytest_cache/
+
+# Docker / Infra
+infra/data/
+infra/pgdata/
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+*.zip
