@@ -99,7 +99,7 @@ const CanvasInner = () => {
         nodeTypes={nodeTypes}
         colorMode="dark"
         
-        // --- INI SANGAT PENTING ---
+        // --- INI SANGAT PENTING --- asdasdasdasdas
         connectionMode={ConnectionMode.Loose} 
         connectionLineType={ConnectionLineType.SmoothStep}
         connectionLineStyle={{ stroke: "#ffffff", strokeWidth: 2 }}
