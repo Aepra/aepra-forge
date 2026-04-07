@@ -14,11 +14,13 @@ import {
   Edge,
   Node,
   BackgroundVariant,
-  SelectionMode, // Import ini untuk mode navigasi
+  SelectionMode,
+  MarkerType,
+  ConnectionMode,
+  ConnectionLineType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-// 1. Import komponen kustom TableNode
 import { TableNode } from "@/features/architect/components/TableNode";
 
 const initialNodes: Node[] = [];
@@ -29,11 +31,27 @@ const CanvasInner = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { screenToFlowPosition } = useReactFlow();
 
-  // 2. Registrasikan tipe node kustom
   const nodeTypes = useMemo(() => ({ tableErd: TableNode }), []);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+    (params: Connection) =>
+      setEdges((eds) =>
+        addEdge(
+          {
+            ...params,
+            type: ConnectionLineType.SmoothStep,
+            animated: false,
+            style: { stroke: "#ffffff", strokeWidth: 2 },
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              width: 20,
+              height: 20,
+              color: "#ffffff",
+            },
+          },
+          eds
+        )
+      ),
     [setEdges]
   );
 
@@ -45,7 +63,6 @@ const CanvasInner = () => {
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-
       const type = event.dataTransfer.getData("application/reactflow");
       if (!type || !reactFlowWrapper.current) return;
 
@@ -54,7 +71,6 @@ const CanvasInner = () => {
         y: event.clientY,
       });
 
-      // 3. Buat Node Baru
       const newNode: Node = {
         id: `node_${Date.now()}`,
         type: "tableErd",
@@ -63,7 +79,6 @@ const CanvasInner = () => {
           label: `TABLE_${nodes.length + 1}`, 
           columns: [] 
         },
-        // Kita tidak pakai dragHandle khusus lagi karena seluruh header jadi pegangan
       };
 
       setNodes((nds) => nds.concat(newNode));
@@ -84,17 +99,18 @@ const CanvasInner = () => {
         nodeTypes={nodeTypes}
         colorMode="dark"
         
-        // --- FITUR NAVIGASI PROFESIONAL ---
-        panOnDrag={[2]} // [2] Menggunakan Klik Kanan untuk geser layar (panning)
+        // --- INI SANGAT PENTING ---
+        connectionMode={ConnectionMode.Loose} 
+        connectionLineType={ConnectionLineType.SmoothStep}
+        connectionLineStyle={{ stroke: "#ffffff", strokeWidth: 2 }}
+
+        panOnDrag={[2]} 
         selectionMode={SelectionMode.Partial}
-        panOnScroll={true}
-        
-        // Matikan menu klik kanan default browser agar tidak muncul saat geser layar
         onContextMenu={(e) => e.preventDefault()}
         
         fitViewOptions={{ padding: 0.2 }}
         snapToGrid={true}
-        snapGrid={[10, 10]}
+        snapGrid={[20, 20]}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} color="#333" />
         <Controls />

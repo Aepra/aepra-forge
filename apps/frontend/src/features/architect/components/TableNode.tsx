@@ -31,40 +31,39 @@ const ColumnRow = memo(
     return (
       <div className="flex items-center px-2 py-1.5 text-[12px] border-b border-white/10 group/row relative hover:bg-white/5 transition-colors">
         
-        {/* HANDLE LEFT (FIX: scoped hover + hitbox besar) */}
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity">
+        {/* 🔵 HANDLE KIRI (Hybrid: Bisa Narik & Bisa Terima) */}
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity z-50">
           <Handle
-            type="target"
+            type="source" 
             position={Position.Left}
-            id={`target-${column.id}`}
-            className="!w-[14px] !h-[14px] !bg-transparent !border-none cursor-crosshair"
+            id={`left-${column.id}`}
+            isConnectableStart={true}
+            isConnectableEnd={true}
+            className="!w-[14px] !h-[14px] !bg-transparent !border-none cursor-crosshair flex items-center justify-center"
           >
-            <div className="w-[6px] h-[6px] bg-[#00f2ff] rounded-full mx-auto my-auto" />
+            <div className="w-[6px] h-[6px] bg-[#00f2ff] rounded-full shadow-[0_0_5px_#00f2ff]" />
           </Handle>
         </div>
 
-        {/* INPUT */}
         <input
           value={column.name}
           onChange={(e) => onUpdate(column.id, "name", e.target.value)}
-          className="flex-1 bg-transparent outline-none text-white placeholder:text-white/20"
+          className="flex-1 bg-transparent outline-none text-white placeholder:text-white/20 ml-1"
           placeholder="field_name"
         />
 
-        {/* TYPE */}
         <select
           value={column.type}
           onChange={(e) => onUpdate(column.id, "type", e.target.value)}
           className="text-[10px] text-white/50 bg-transparent outline-none cursor-pointer hover:text-white"
         >
           {DATA_TYPES.map((t) => (
-            <option key={t} value={t} className="bg-[#0a0a0a] text-white">
+            <option key={t} value={t} className="bg-[#0a0a0a] text-white uppercase">
               {t}
             </option>
           ))}
         </select>
 
-        {/* DELETE */}
         <button
           onClick={() => onDelete(column.id)}
           className="ml-2 opacity-0 group-hover/row:opacity-100 transition-opacity"
@@ -72,15 +71,17 @@ const ColumnRow = memo(
           <Trash2 className="w-3 h-3 text-red-400/60 hover:text-red-500" />
         </button>
 
-        {/* HANDLE RIGHT */}
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity">
+        {/* 🔵 HANDLE KANAN (Hybrid: Bisa Narik & Bisa Terima) */}
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity z-50">
           <Handle
-            type="source"
+            type="source" 
             position={Position.Right}
-            id={`source-${column.id}`}
-            className="!w-[14px] !h-[14px] !bg-transparent !border-none cursor-crosshair"
+            id={`right-${column.id}`}
+            isConnectableStart={true}
+            isConnectableEnd={true}
+            className="!w-[14px] !h-[14px] !bg-transparent !border-none cursor-crosshair flex items-center justify-center"
           >
-            <div className="w-[6px] h-[6px] bg-[#00f2ff] rounded-full mx-auto my-auto" />
+            <div className="w-[6px] h-[6px] bg-[#00f2ff] rounded-full shadow-[0_0_5px_#00f2ff]" />
           </Handle>
         </div>
       </div>
@@ -104,14 +105,9 @@ export const TableNode = memo(({ data }: NodeProps<Node<TableNodeData>>) => {
     ]);
   }, []);
 
-  const updateColumn = useCallback(
-    (id: string, field: keyof ColumnData, value: string) => {
-      setColumns((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
-      );
-    },
-    []
-  );
+  const updateColumn = useCallback((id: string, field: keyof ColumnData, value: string) => {
+    setColumns((prev) => prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
+  }, []);
 
   const deleteColumn = useCallback((id: string) => {
     setColumns((prev) => prev.filter((c) => c.id !== id));
@@ -125,15 +121,15 @@ export const TableNode = memo(({ data }: NodeProps<Node<TableNodeData>>) => {
   }, [isEditing]);
 
   return (
-    <div className="bg-black/60 border border-white/40 rounded-lg min-w-[220px] text-xs shadow-2xl backdrop-blur-md overflow-hidden transition-all hover:border-[#00f2ff]/50">
+    <div className="bg-black/60 border border-white/40 rounded-lg min-w-[220px] text-xs shadow-2xl backdrop-blur-md overflow-visible transition-all hover:border-[#00f2ff]/50 relative group">
       
       {/* HEADER */}
       <div
-        className="flex items-center justify-between px-3 py-2 border-b border-white/20 bg-white/5 cursor-grab active:cursor-grabbing"
+        className="flex items-center justify-between px-3 py-2 border-b border-white/20 bg-white/5 cursor-grab active:cursor-grabbing rounded-t-lg"
         onDoubleClick={() => setIsEditing(true)}
       >
         <div className="flex items-center gap-2 w-full mr-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#00f2ff]" />
+          <div className="w-1.5 h-1.5 rounded-full bg-[#00f2ff] shadow-[0_0_8px_#00f2ff]" />
           <input
             ref={inputRef}
             readOnly={!isEditing}
@@ -141,13 +137,10 @@ export const TableNode = memo(({ data }: NodeProps<Node<TableNodeData>>) => {
             onBlur={() => setIsEditing(false)}
             onKeyDown={(e) => e.key === "Enter" && setIsEditing(false)}
             className={`font-bold bg-transparent outline-none text-[11px] uppercase tracking-wider w-full ${
-              isEditing
-                ? "text-white bg-white/10 px-1 rounded cursor-text"
-                : "text-gray-300 cursor-grab"
+              isEditing ? "text-white bg-white/10 px-1 rounded cursor-text" : "text-gray-300 cursor-grab"
             }`}
           />
         </div>
-
         <button
           onClick={addColumn}
           className="nodrag p-1 hover:bg-[#00f2ff]/20 rounded transition-colors text-[#00f2ff]"
@@ -156,8 +149,7 @@ export const TableNode = memo(({ data }: NodeProps<Node<TableNodeData>>) => {
         </button>
       </div>
 
-      {/* BODY */}
-      <div className="nodrag bg-black/20">
+      <div className="nodrag bg-black/20 rounded-b-lg">
         {columns.length > 0 ? (
           columns.map((col) => (
             <ColumnRow
@@ -168,13 +160,12 @@ export const TableNode = memo(({ data }: NodeProps<Node<TableNodeData>>) => {
             />
           ))
         ) : (
-          <div className="py-6 text-center text-[10px] text-white/20 uppercase tracking-widest italic">
+          <div className="py-6 text-center text-[10px] text-white/20 uppercase tracking-widest italic leading-relaxed px-4">
             no fields defined
           </div>
         )}
       </div>
 
-      {/* SELECTED OUTLINE */}
       <div className="absolute inset-0 border-2 border-[#00f2ff]/0 group-data-[selected=true]:border-[#00f2ff]/40 rounded-lg pointer-events-none transition-all" />
     </div>
   );
