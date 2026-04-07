@@ -1,97 +1,99 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useRef, useMemo } from "react"; // Tambah useMemo
 import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   useNodesState,
   useEdgesState,
   addEdge,
+  useReactFlow,
+  ReactFlowProvider,
   Connection,
   Edge,
+  Node,
   BackgroundVariant,
 } from "@xyflow/react";
-
-// WAJIB Import CSS-nya agar tampilannya tidak berantakan
 import "@xyflow/react/dist/style.css";
 
-// Data dummy awal biar kanvas nggak kosong pas dibuka
-const initialNodes = [
-  {
-    id: "node-1",
-    type: "default",
-    data: { label: "users_table" },
-    position: { x: 250, y: 5 },
-    style: { 
-      background: "#1a1a1c", 
-      color: "#fff", 
-      border: "1px solid #333",
-      borderRadius: "8px",
-      fontSize: "12px",
-      fontWeight: "bold"
-    },
-  },
-  {
-    id: "node-2",
-    data: { label: "posts_table" },
-    position: { x: 100, y: 100 },
-    style: { 
-      background: "#1a1a1c", 
-      color: "#fff", 
-      border: "1px solid #333",
-      borderRadius: "8px",
-      fontSize: "12px",
-      fontWeight: "bold"
-    },
-  },
-];
+// 1. Import komponen kustom yang akan kita buat (Step 2)
+import { TableNode } from "./TableNode"; 
 
-const initialEdges: Edge[] = [];
+const initialNodes: Node[] = [];
 
-export const EditorCanvas = () => {
-  // State untuk Node (Kotak Tabel) dan Edges (Garis Relasi)
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+const CanvasInner = () => {
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const { screenToFlowPosition } = useReactFlow();
 
-  // Fungsi untuk menyambungkan dua tabel (bikin garis relasi)
+  // 2. Registrasikan tipe node kustom. Gunakan useMemo agar tidak re-render terus.
+  const nodeTypes = useMemo(() => ({ tableErd: TableNode }), []);
+
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
 
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      // Pastikan di Sidebar.tsx, onDragStart mengirim data 'tableErd'
+      const type = event.dataTransfer.getData("application/reactflow");
+      if (!type || !reactFlowWrapper.current) return;
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      // 3. Buat Node Baru dengan type 'tableErd'
+      const newNode: Node = {
+        id: `node_${Date.now()}`,
+        type: 'tableErd', // <-- WAJIB SESUAI REGISTRASI
+        position,
+        // Data awal untuk node baru
+        data: { 
+          label: `NewTable_${nodes.length + 1}`,
+          columns: [] // Array kosong untuk menampung isi/kolom nanti
+        },
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+    },
+    [screenToFlowPosition, setNodes, nodes.length]
+  );
+
   return (
-    <div className="flex-1 w-full h-full">
+    <div className="flex-1 w-full h-full relative" ref={reactFlowWrapper}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        // Mode Gelap otomatis
+        onDrop={onDrop}
+        onDragOver={onDragOver}
+        nodeTypes={nodeTypes} // 4. Pasang registrasi tipe node di sini
         colorMode="dark"
-        // Agar kanvas langsung fokus ke tabel yang ada
         fitView
       >
-        {/* Latar belakang titik-titik (Dots) */}
-        <Background 
-          variant={BackgroundVariant.Dots} 
-          gap={20} 
-          size={1} 
-          color="#333" 
-        />
-        
-        {/* Tombol Zoom dan Fit View di pojok kiri bawah */}
-        <Controls className="bg-[#1a1a1c] border-white/10 fill-white" />
-        
-        {/* Peta kecil di pojok kanan bawah */}
-        <MiniMap 
-          nodeColor="#00f2ff" 
-          maskColor="rgba(0, 0, 0, 0.7)"
-          className="bg-[#111113] border border-white/5 rounded-lg"
-        />
+        <Background variant={BackgroundVariant.Dots} gap={20} color="#333" />
+        <Controls />
       </ReactFlow>
     </div>
   );
 };
+
+export const EditorCanvas = () => (
+  <ReactFlowProvider>
+    <CanvasInner />
+  </ReactFlowProvider>
+);
