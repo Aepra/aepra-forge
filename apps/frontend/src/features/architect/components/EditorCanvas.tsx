@@ -18,7 +18,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 // 1. Import komponen kustom yang akan kita buat (Step 2)
-import { TableNode } from "./TableNode"; 
+import { TableNode } from "@/features/architect/components/TableNode";
 
 const initialNodes: Node[] = [];
 
