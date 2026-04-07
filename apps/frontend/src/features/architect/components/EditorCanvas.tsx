@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useRef, useMemo } from "react"; // Tambah useMemo
+import React, { useCallback, useRef, useMemo } from "react";
 import {
   ReactFlow,
   Background,
@@ -14,10 +14,11 @@ import {
   Edge,
   Node,
   BackgroundVariant,
+  SelectionMode, // Import ini untuk mode navigasi
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-// 1. Import komponen kustom yang akan kita buat (Step 2)
+// 1. Import komponen kustom TableNode
 import { TableNode } from "@/features/architect/components/TableNode";
 
 const initialNodes: Node[] = [];
@@ -28,7 +29,7 @@ const CanvasInner = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { screenToFlowPosition } = useReactFlow();
 
-  // 2. Registrasikan tipe node kustom. Gunakan useMemo agar tidak re-render terus.
+  // 2. Registrasikan tipe node kustom
   const nodeTypes = useMemo(() => ({ tableErd: TableNode }), []);
 
   const onConnect = useCallback(
@@ -45,7 +46,6 @@ const CanvasInner = () => {
     (event: React.DragEvent) => {
       event.preventDefault();
 
-      // Pastikan di Sidebar.tsx, onDragStart mengirim data 'tableErd'
       const type = event.dataTransfer.getData("application/reactflow");
       if (!type || !reactFlowWrapper.current) return;
 
@@ -54,16 +54,16 @@ const CanvasInner = () => {
         y: event.clientY,
       });
 
-      // 3. Buat Node Baru dengan type 'tableErd'
+      // 3. Buat Node Baru
       const newNode: Node = {
         id: `node_${Date.now()}`,
-        type: 'tableErd', // <-- WAJIB SESUAI REGISTRASI
+        type: "tableErd",
         position,
-        // Data awal untuk node baru
         data: { 
-          label: `NewTable_${nodes.length + 1}`,
-          columns: [] // Array kosong untuk menampung isi/kolom nanti
+          label: `TABLE_${nodes.length + 1}`, 
+          columns: [] 
         },
+        // Kita tidak pakai dragHandle khusus lagi karena seluruh header jadi pegangan
       };
 
       setNodes((nds) => nds.concat(newNode));
@@ -81,9 +81,20 @@ const CanvasInner = () => {
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        nodeTypes={nodeTypes} // 4. Pasang registrasi tipe node di sini
+        nodeTypes={nodeTypes}
         colorMode="dark"
-        fitView
+        
+        // --- FITUR NAVIGASI PROFESIONAL ---
+        panOnDrag={[2]} // [2] Menggunakan Klik Kanan untuk geser layar (panning)
+        selectionMode={SelectionMode.Partial}
+        panOnScroll={true}
+        
+        // Matikan menu klik kanan default browser agar tidak muncul saat geser layar
+        onContextMenu={(e) => e.preventDefault()}
+        
+        fitViewOptions={{ padding: 0.2 }}
+        snapToGrid={true}
+        snapGrid={[10, 10]}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} color="#333" />
         <Controls />

@@ -1,153 +1,181 @@
 "use client";
 
-import React, { memo, useState, useCallback } from 'react';
-import { Handle, Position, NodeProps, Node } from '@xyflow/react';
-import { Plus, GripVertical, Trash2 } from 'lucide-react';
+import React, { memo, useState, useCallback, useRef, useEffect } from "react";
+import { Handle, Position, NodeProps, Node } from "@xyflow/react";
+import { Plus, Trash2 } from "lucide-react";
 
-// 1. Daftar Jenis Data untuk Dropdown (Gambar 2)
-const DATA_TYPES = [
-  'int_primary',
-  'uuid',
-  'varchar(255)',
-  'text',
-  'integer',
-  'boolean',
-  'timestamp',
-  'json'
-];
+const DATA_TYPES = ["int", "uuid", "varchar", "text", "boolean", "timestamp"];
 
-// 2. Definisi Struktur Data Kolom
 interface ColumnData {
   id: string;
   name: string;
   type: string;
 }
 
-// 3. Definisi Tipe Data untuk Node Tabel
 type TableNodeData = {
   label: string;
   columns: ColumnData[];
 };
 
-// --- Komponen Baris Kolom (ISI) ---
-const ColumnRow = memo(({ 
-  column, 
-  onUpdate, 
-  onDelete 
-}: { 
-  column: ColumnData; 
-  onUpdate: (id: string, field: keyof ColumnData, value: string) => void;
-  onDelete: (id: string) => void;
-}) => {
-  return (
-    <div className="flex items-center gap-2 group py-1.5 border-b border-white/5 last:border-b-0 hover:bg-white/5 px-2 transition-colors relative">
-      {/* Handle Relasi Kiri */}
-      <Handle type="target" position={Position.Left} className="!bg-[#00f2ff] !w-2 !h-2 !-left-1 !border-none" />
-      
-      <GripVertical className="w-3 h-3 text-muted-foreground/50 cursor-grab" />
-      
-      {/* Nama Kolom (Gambar 2: user_id) */}
-      <input 
-        type="text" 
-        value={column.name}
-        onChange={(e) => onUpdate(column.id, 'name', e.target.value)}
-        className="flex-1 bg-transparent text-[11px] text-white focus:outline-none focus:ring-1 focus:ring-primary/50 rounded px-1 min-w-[50px]"
-        placeholder="column_name"
-      />
-      
-      {/* Dropdown Tipe Data (Gambar 2: type: int_primary) */}
-      <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-        <span>type:</span>
-        <select 
+// --- COLUMN ROW ---
+const ColumnRow = memo(
+  ({
+    column,
+    onUpdate,
+    onDelete,
+  }: {
+    column: ColumnData;
+    onUpdate: (id: string, field: keyof ColumnData, value: string) => void;
+    onDelete: (id: string) => void;
+  }) => {
+    return (
+      <div className="flex items-center px-2 py-1.5 text-[12px] border-b border-white/10 group/row relative hover:bg-white/5 transition-colors">
+        
+        {/* HANDLE LEFT (FIX: scoped hover + hitbox besar) */}
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity">
+          <Handle
+            type="target"
+            position={Position.Left}
+            id={`target-${column.id}`}
+            className="!w-[14px] !h-[14px] !bg-transparent !border-none cursor-crosshair"
+          >
+            <div className="w-[6px] h-[6px] bg-[#00f2ff] rounded-full mx-auto my-auto" />
+          </Handle>
+        </div>
+
+        {/* INPUT */}
+        <input
+          value={column.name}
+          onChange={(e) => onUpdate(column.id, "name", e.target.value)}
+          className="flex-1 bg-transparent outline-none text-white placeholder:text-white/20"
+          placeholder="field_name"
+        />
+
+        {/* TYPE */}
+        <select
           value={column.type}
-          onChange={(e) => onUpdate(column.id, 'type', e.target.value)}
-          className="bg-[#1a1a1c] border border-white/10 rounded px-1 py-0.5 text-[10px] text-white/90 focus:outline-none focus:border-primary cursor-pointer hover:border-white/20"
+          onChange={(e) => onUpdate(column.id, "type", e.target.value)}
+          className="text-[10px] text-white/50 bg-transparent outline-none cursor-pointer hover:text-white"
         >
-          {DATA_TYPES.map(t => (
-            <option key={t} value={t}>{t}</option>
+          {DATA_TYPES.map((t) => (
+            <option key={t} value={t} className="bg-[#0a0a0a] text-white">
+              {t}
+            </option>
           ))}
         </select>
+
+        {/* DELETE */}
+        <button
+          onClick={() => onDelete(column.id)}
+          className="ml-2 opacity-0 group-hover/row:opacity-100 transition-opacity"
+        >
+          <Trash2 className="w-3 h-3 text-red-400/60 hover:text-red-500" />
+        </button>
+
+        {/* HANDLE RIGHT */}
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 opacity-0 group-hover/row:opacity-100 transition-opacity">
+          <Handle
+            type="source"
+            position={Position.Right}
+            id={`source-${column.id}`}
+            className="!w-[14px] !h-[14px] !bg-transparent !border-none cursor-crosshair"
+          >
+            <div className="w-[6px] h-[6px] bg-[#00f2ff] rounded-full mx-auto my-auto" />
+          </Handle>
+        </div>
       </div>
+    );
+  }
+);
 
-      <button onClick={() => onDelete(column.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
-        <Trash2 className="w-3 h-3 text-red-500 hover:text-red-400" />
-      </button>
-
-      {/* Handle Relasi Kanan */}
-      <Handle type="source" position={Position.Right} className="!bg-[#00f2ff] !w-2 !h-2 !-right-1 !border-none" />
-    </div>
-  );
-});
-
-// --- Komponen Utama TableNode ---
-export const TableNode = memo(({ data, id }: NodeProps<Node<TableNodeData>>) => {
-  // Inisialisasi state dengan pengecekan tipe data yang ketat
+// --- TABLE NODE ---
+export const TableNode = memo(({ data }: NodeProps<Node<TableNodeData>>) => {
   const [columns, setColumns] = useState<ColumnData[]>(
     Array.isArray(data.columns) ? data.columns : []
   );
 
+  const [isEditing, setIsEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const addColumn = useCallback(() => {
-    const newColumn: ColumnData = {
-      id: `col_${Date.now()}`,
-      name: `new_col_${columns.length + 1}`,
-      type: DATA_TYPES[0]
-    };
-    setColumns(prev => [...prev, newColumn]);
-  }, [columns.length]);
-
-  const updateColumn = useCallback((colId: string, field: keyof ColumnData, value: string) => {
-    setColumns(prev => prev.map(col => col.id === colId ? { ...col, [field]: value } : col));
+    setColumns((prev) => [
+      ...prev,
+      { id: `col_${Date.now()}`, name: "new_column", type: "int" },
+    ]);
   }, []);
 
-  const deleteColumn = useCallback((colId: string) => {
-    setColumns(prev => prev.filter(col => col.id !== colId));
+  const updateColumn = useCallback(
+    (id: string, field: keyof ColumnData, value: string) => {
+      setColumns((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
+      );
+    },
+    []
+  );
+
+  const deleteColumn = useCallback((id: string) => {
+    setColumns((prev) => prev.filter((c) => c.id !== id));
   }, []);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
 
   return (
-    <div className="bg-[#0f0f11] border-2 border-[#00f2ff]/50 rounded-xl shadow-[0_0_20px_rgba(0,242,255,0.15)] min-w-[240px] overflow-hidden group nodrag">
+    <div className="bg-black/60 border border-white/40 rounded-lg min-w-[220px] text-xs shadow-2xl backdrop-blur-md overflow-hidden transition-all hover:border-[#00f2ff]/50">
       
-      {/* --- HEADER (Gambar 1) --- */}
-      <div className="flex items-center justify-between p-3 bg-[#1a1a1c] border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#00f2ff] animate-pulse" />
-          <input 
-            type="text" 
-            defaultValue={(data.label as string) || "Table_Name"} 
-            className="text-xs font-bold text-white bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/50 rounded px-1"
+      {/* HEADER */}
+      <div
+        className="flex items-center justify-between px-3 py-2 border-b border-white/20 bg-white/5 cursor-grab active:cursor-grabbing"
+        onDoubleClick={() => setIsEditing(true)}
+      >
+        <div className="flex items-center gap-2 w-full mr-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#00f2ff]" />
+          <input
+            ref={inputRef}
+            readOnly={!isEditing}
+            defaultValue={(data.label as string) || "TABLE_NAME"}
+            onBlur={() => setIsEditing(false)}
+            onKeyDown={(e) => e.key === "Enter" && setIsEditing(false)}
+            className={`font-bold bg-transparent outline-none text-[11px] uppercase tracking-wider w-full ${
+              isEditing
+                ? "text-white bg-white/10 px-1 rounded cursor-text"
+                : "text-gray-300 cursor-grab"
+            }`}
           />
         </div>
-        
-        {/* Tombol + (Gambar 1) */}
-        <button 
+
+        <button
           onClick={addColumn}
-          className="p-1.5 rounded-lg bg-primary/10 hover:bg-primary/30 text-primary transition-all border border-primary/20 active:scale-95"
+          className="nodrag p-1 hover:bg-[#00f2ff]/20 rounded transition-colors text-[#00f2ff]"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-4 h-4" />
         </button>
       </div>
 
-      {/* --- ISI / COLUMNS (Gambar 2) --- */}
-      <div className="py-1 min-h-[40px]">
+      {/* BODY */}
+      <div className="nodrag bg-black/20">
         {columns.length > 0 ? (
-          columns.map(col => (
-            <ColumnRow 
-              key={col.id} 
-              column={col} 
-              onUpdate={updateColumn} 
+          columns.map((col) => (
+            <ColumnRow
+              key={col.id}
+              column={col}
+              onUpdate={updateColumn}
               onDelete={deleteColumn}
             />
           ))
         ) : (
-          <div className="py-6 px-4 text-center">
-            <p className="text-[10px] text-muted-foreground italic">
-              No columns yet. Click + to add.
-            </p>
+          <div className="py-6 text-center text-[10px] text-white/20 uppercase tracking-widest italic">
+            no fields defined
           </div>
         )}
       </div>
 
-      {/* Glow Effect saat terpilih */}
-      <div className="absolute inset-0 border-2 border-primary rounded-xl opacity-0 group-data-[selected=true]:opacity-100 pointer-events-none transition-opacity" />
+      {/* SELECTED OUTLINE */}
+      <div className="absolute inset-0 border-2 border-[#00f2ff]/0 group-data-[selected=true]:border-[#00f2ff]/40 rounded-lg pointer-events-none transition-all" />
     </div>
   );
 });
