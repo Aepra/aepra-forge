@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") 
+}
+// --- 1. Tabel Users ---
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  password_hash String
+  created_at    DateTime  @default(now())
+
+  // Relasi
+  projects      Project[]
+
+  @@map("users")
+}
+
+// --- 2. Tabel Projects ---
+model Project {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  name       String
+  created_at DateTime @default(now())
+
+  // Relasi
+  user        User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  schemas     Schema[]
+  deployments Deployment[]
+
+  @@map("projects")
+}
+
+// --- 3. Tabel Schemas (Paling Penting!) ---
+model Schema {
+  id          String   @id @default(uuid()) @db.Uuid
+  project_id  String   @db.Uuid
+  schema_json Json     // Menyimpan hasil drag & drop React Flow
+  version     Int      @default(1)
+  created_at  DateTime @default(now())
+
+  // Relasi
+  project     Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("schemas")
+}
+
+// --- 4. Tabel Deployments ---
+model Deployment {
+  id           String    @id @default(uuid()) @db.Uuid
+  project_id   String    @db.Uuid
+  container_id String?
+  db_type      String    @default("postgres")
+  port         Int?
+  status       String    @default("CREATING") // CREATING, RUNNING, FAILED, STOPPED
+  cpu_limit    Float?
+  memory_limit Int?
+  expires_at   DateTime?
+  created_at   DateTime  @default(now())
+
+  // Relasi
+  project      Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("deployments")
+}
