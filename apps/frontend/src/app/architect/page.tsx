@@ -1,9 +1,11 @@
-import EditorCanvas from "@/features/architect/components/EditorCanvas";
+// src/app/architect/page.tsx
+
+import { ArchitectWorkspace } from "@/features/architect";
 
 export default function ArchitectPage() {
   return (
-    <main className="w-full h-screen overflow-hidden">
-      <EditorCanvas />
-    </main>
+    <div className="w-full h-full">
+      <ArchitectWorkspace />
+    </div>
   );
 }

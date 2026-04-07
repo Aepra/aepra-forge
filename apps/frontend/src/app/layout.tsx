@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "@/components/shared/Navbar"; // Pastikan path ini benar
+import { NavbarWrapper } from "@/components/shared/NavbarWrapper";
 
 // Konfigurasi Font
 const geistSans = Geist({
@@ -29,15 +29,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}
       >
-        {/* Navbar Global yang kita buat tadi */}
-        <Navbar />
-
-        {/* Gunakan main tag dengan padding-top (pt-16) 
-            agar konten tidak tertutup navbar yang posisinya 'fixed'
-        */}
-        <main className="pt-16 min-h-screen flex flex-col">
+        {/* Bungkus children dengan NavbarWrapper */}
+        <NavbarWrapper>
           {children}
-        </main>
+        </NavbarWrapper>
       </body>
     </html>
   );

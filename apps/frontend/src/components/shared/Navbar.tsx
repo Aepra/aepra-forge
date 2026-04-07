@@ -54,7 +54,7 @@ export const Navbar = () => {
             </Button>
           ) : (
             <Button variant="ghost" size="sm" className="hidden sm:flex gap-2" asChild>
-              <Link href="https://github.com/AbelEkaPutra/aepra-forge" target="_blank">
+              <Link href="https://github.com/Aepra/aepra-forge" target="_blank">
                 {/* Pakai Github yang sudah diimport di atas */}
                 <Github className="w-4 h-4" /> Star
               </Link>
