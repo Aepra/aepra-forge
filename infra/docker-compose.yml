@@ -1,0 +1,17 @@
+services:
+  # Database utama untuk Aepra-Forge (Next.js & Prisma)
+  aepra_db:
+    image: postgres:16-alpine
+    container_name: aepra_web_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: aepra_web_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - aepra_web_data:/var/lib/postgresql/data
+
+volumes:
+  aepra_web_data:
