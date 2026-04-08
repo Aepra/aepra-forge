@@ -21,7 +21,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { TableNode } from "@/features/architect/components/TableNode";
+import { TableNode } from "@/features/architect/components/nodes/TableNode";
 
 const initialNodes: Node[] = [];
 

@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { Sidebar } from "./components/Sidebar";
+import { Sidebar } from "./components/ui/Sidebar";
 import { Toolbar } from "./components/Toolbar";
-import { Properties } from "./components/Properties";
+import { Properties } from "./components/ui/Properties";
 import { EditorCanvas } from "./components/EditorCanvas";
 
 export const ArchitectWorkspace = () => {
