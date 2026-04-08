@@ -169,7 +169,7 @@ Lalu buka: http://localhost:8000/docs
         zip_file.writestr("app/schemas/__init__.py", "")
         zip_file.writestr("app/schemas/schemas.py", schemas_code)
         
-        # Folder CRUD
+        # Folder CRUD hahaha
         zip_file.writestr("app/crud/__init__.py", "")
         zip_file.writestr("app/crud/crud.py", crud_code)
         
