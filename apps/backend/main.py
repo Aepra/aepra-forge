@@ -173,7 +173,7 @@ Lalu buka: http://localhost:8000/docs
         zip_file.writestr("app/crud/__init__.py", "")
         zip_file.writestr("app/crud/crud.py", crud_code)
         
-        # Folder API Routers asdasda 
+        # Folder API Routers asd
         zip_file.writestr("app/api/__init__.py", "")
         zip_file.writestr("app/api/routes.py", routes_code)
 
