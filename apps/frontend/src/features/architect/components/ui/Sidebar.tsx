@@ -17,6 +17,8 @@ export const Sidebar = ({ relationArrowType, onRelationArrowTypeChange }: Sideba
 
   return (
     <aside className="w-64 border-r border-white/5 bg-[#111113] flex flex-col p-4">
+      <div className="mb-4 h-9 rounded-md border border-white/10 bg-[#17171a]" />
+
       <div className="mb-6">
         <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block mb-4">
           Components
@@ -36,14 +38,30 @@ export const Sidebar = ({ relationArrowType, onRelationArrowTypeChange }: Sideba
           <label className="text-[10px] font-semibold uppercase tracking-wider text-white/60 block mb-2">
             Jenis Panah Relasi
           </label>
-          <select
-            value={relationArrowType}
-            onChange={(event) => onRelationArrowTypeChange(event.target.value as RelationArrowType)}
-            className="w-full bg-[#0f0f11] border border-white/15 text-gray-200 text-xs rounded-md px-2 py-2 outline-none focus:border-cyan-400/70"
-          >
-            <option value="lurus">Lurus</option>
-            <option value="tali">Tali</option>
-          </select>
+          <div className="grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              onClick={() => onRelationArrowTypeChange("orthogonal")}
+              className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                relationArrowType === "orthogonal"
+                  ? "border-cyan-400/70 bg-cyan-500/10 text-cyan-200"
+                  : "border-white/10 bg-[#0f0f11] text-gray-300 hover:border-white/20"
+              }`}
+            >
+              Orthogonal
+            </button>
+            <button
+              type="button"
+              onClick={() => onRelationArrowTypeChange("curved")}
+              className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                relationArrowType === "curved"
+                  ? "border-cyan-400/70 bg-cyan-500/10 text-cyan-200"
+                  : "border-white/10 bg-[#0f0f11] text-gray-300 hover:border-white/20"
+              }`}
+            >
+              Curved
+            </button>
+          </div>
         </div>
       </div>
       

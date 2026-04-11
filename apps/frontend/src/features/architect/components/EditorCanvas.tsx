@@ -283,11 +283,11 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
     y: number;
   } | null>(null);
 
-  const connectionLineType = relationArrowType === "lurus"
+  const connectionLineType = relationArrowType === "orthogonal"
     ? ConnectionLineType.Straight
     : ConnectionLineType.Bezier;
 
-  const edgeType = relationArrowType === "lurus" ? "straight" : "default";
+  const edgeType = relationArrowType === "orthogonal" ? "straight" : "default";
 
   const nodeTypes = useMemo(() => ({ tableErd: TableNode }), []);
   const edgeTypes = useMemo(() => ({ orthogonalEditable: OrthogonalEditableEdge }), []);
@@ -315,12 +315,12 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
         addEdge(
           {
             ...finalParams,
-            type: relationArrowType === "lurus" ? "orthogonalEditable" : edgeType,
+            type: relationArrowType === "orthogonal" ? "orthogonalEditable" : edgeType,
             animated: false,
             style: { stroke: "#ffffff", strokeWidth: 2 },
             zIndex: 1,
             data:
-              relationArrowType === "lurus"
+              relationArrowType === "orthogonal"
                 ? ({ laneOffset, routeOrder: edges.length } as OrthogonalEdgeData)
                 : undefined,
             markerEnd: {
@@ -457,7 +457,7 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
         
         // Tetap loose untuk UX drag, validasi relasi dijaga via isValidConnection
         connectionMode={ConnectionMode.Loose} 
-        connectionLineType={relationArrowType === "lurus" ? ConnectionLineType.Step : connectionLineType}
+        connectionLineType={relationArrowType === "orthogonal" ? ConnectionLineType.Step : connectionLineType}
         connectionLineStyle={{ stroke: "#ffffff", strokeWidth: 2 }}
         isValidConnection={isValidRelationshipConnection}
         defaultEdgeOptions={{ zIndex: 1 }}

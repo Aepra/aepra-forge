@@ -7,10 +7,10 @@ import { Toolbar } from "./components/Toolbar";
 import { Preview } from "./components/ui/Preview"; 
 import { EditorCanvas } from "./components/EditorCanvas";
 
-export type RelationArrowType = "lurus" | "tali";
+export type RelationArrowType = "orthogonal" | "curved";
 
 export const ArchitectWorkspace = () => {
-  const [relationArrowType, setRelationArrowType] = React.useState<RelationArrowType>("tali");
+  const [relationArrowType, setRelationArrowType] = React.useState<RelationArrowType>("curved");
 
   return (
     // 2. Bungkus semua di sini. Ini akan menghilangkan error #001 selamanya.
