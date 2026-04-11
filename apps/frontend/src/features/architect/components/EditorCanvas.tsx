@@ -118,15 +118,53 @@ const buildTargetHandleId = (side: "left" | "right", columnId: string) => {
   return `${side}-${columnId}`;
 };
 
-const getPreferredSides = (sourceNode: Node, targetNode: Node) => {
+const getSideAnchorPoint = (node: Node, side: "left" | "right") => {
+  const { width, height } = getNodeVisualSize(node);
+  const leftX = node.position.x;
+  const rightX = node.position.x + width;
+  return {
+    x: side === "left" ? leftX : rightX,
+    y: node.position.y + height / 2,
+  };
+};
+
+const getSidePairScore = (
+  sourceNode: Node,
+  targetNode: Node,
+  sourceSide: "left" | "right",
+  targetSide: "left" | "right"
+) => {
+  const sourceAnchor = getSideAnchorPoint(sourceNode, sourceSide);
+  const targetAnchor = getSideAnchorPoint(targetNode, targetSide);
+
+  const manhattanDistance =
+    Math.abs(targetAnchor.x - sourceAnchor.x) + Math.abs(targetAnchor.y - sourceAnchor.y);
+
   const sourceCenter = getNodeCenter(sourceNode);
   const targetCenter = getNodeCenter(targetNode);
+  const targetOnRight = targetCenter.x >= sourceCenter.x;
+  const outwardDirectionBonus =
+    (targetOnRight && sourceSide === "right") || (!targetOnRight && sourceSide === "left")
+      ? -24
+      : 0;
 
-  if (targetCenter.x >= sourceCenter.x) {
-    return { sourceSide: "right" as const, targetSide: "left" as const };
-  }
+  return manhattanDistance + outwardDirectionBonus;
+};
 
-  return { sourceSide: "left" as const, targetSide: "right" as const };
+const getPreferredSides = (sourceNode: Node, targetNode: Node) => {
+  const sidePairs: Array<{ sourceSide: "left" | "right"; targetSide: "left" | "right" }> = [
+    { sourceSide: "left", targetSide: "left" },
+    { sourceSide: "left", targetSide: "right" },
+    { sourceSide: "right", targetSide: "left" },
+    { sourceSide: "right", targetSide: "right" },
+  ];
+
+  return sidePairs
+    .map((pair) => ({
+      ...pair,
+      score: getSidePairScore(sourceNode, targetNode, pair.sourceSide, pair.targetSide),
+    }))
+    .sort((a, b) => a.score - b.score)[0];
 };
 
 const resolveEfficientHandles = (connection: Connection, nodes: Node[]) => {
@@ -148,6 +186,75 @@ const resolveEfficientHandles = (connection: Connection, nodes: Node[]) => {
     sourceHandle: buildSourceHandleId(sourceSide, sourceColumnId),
     targetHandle: buildTargetHandleId(targetSide, targetColumnId),
   };
+};
+
+const getEdgeConnectionKey = (
+  source: string | null | undefined,
+  sourceHandle: string | null | undefined,
+  target: string | null | undefined,
+  targetHandle: string | null | undefined
+) => {
+  return [source || "", sourceHandle || "", target || "", targetHandle || ""].join("|");
+};
+
+const optimizeExistingOrthogonalEdges = (edges: Edge[], nodes: Node[]) => {
+  let hasChanges = false;
+  const usedConnections = new Set<string>();
+
+  const updated = edges.map((edge) => {
+    const currentKey = getEdgeConnectionKey(
+      edge.source,
+      edge.sourceHandle || null,
+      edge.target,
+      edge.targetHandle || null
+    );
+
+    if (edge.type !== "orthogonalEditable") {
+      usedConnections.add(currentKey);
+      return edge;
+    }
+
+    const optimized = resolveEfficientHandles(
+      {
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle || null,
+        targetHandle: edge.targetHandle || null,
+      },
+      nodes
+    );
+
+    const nextSourceHandle = optimized.sourceHandle || edge.sourceHandle;
+    const nextTargetHandle = optimized.targetHandle || edge.targetHandle;
+
+    if (!nextSourceHandle || !nextTargetHandle) {
+      usedConnections.add(currentKey);
+      return edge;
+    }
+
+    const nextKey = getEdgeConnectionKey(edge.source, nextSourceHandle, edge.target, nextTargetHandle);
+    const connectionAlreadyUsed = nextKey !== currentKey && usedConnections.has(nextKey);
+
+    if (connectionAlreadyUsed) {
+      usedConnections.add(currentKey);
+      return edge;
+    }
+
+    usedConnections.add(nextKey);
+
+    if (nextSourceHandle === edge.sourceHandle && nextTargetHandle === edge.targetHandle) {
+      return edge;
+    }
+
+    hasChanges = true;
+    return {
+      ...edge,
+      sourceHandle: nextSourceHandle,
+      targetHandle: nextTargetHandle,
+    };
+  });
+
+  return hasChanges ? updated : edges;
 };
 
 const isPrimaryKeyColumn = (column: any) => {
@@ -186,14 +293,18 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
   const edgeTypes = useMemo(() => ({ orthogonalEditable: OrthogonalEditableEdge }), []);
 
   useEffect(() => {
-    setEdges((prevEdges) => normalizeOrthogonalEdgeOrder(prevEdges));
-  }, [setEdges, edges.length, nodes.length]);
+    setEdges((prevEdges) => {
+      const optimized = optimizeExistingOrthogonalEdges(prevEdges, nodes);
+      return normalizeOrthogonalEdgeOrder(optimized);
+    });
+  }, [setEdges, nodes, edges.length]);
 
   const onConnect = useCallback(
     (params: Connection) => {
       const optimizedParams = resolveEfficientHandles(params, nodes);
+      const finalParams = isValidRelationshipConnection(optimizedParams) ? optimizedParams : params;
 
-      if (!isValidRelationshipConnection(optimizedParams)) {
+      if (!isValidRelationshipConnection(finalParams)) {
         return;
       }
 
@@ -203,7 +314,7 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
       setEdges((eds) =>
         addEdge(
           {
-            ...optimizedParams,
+            ...finalParams,
             type: relationArrowType === "lurus" ? "orthogonalEditable" : edgeType,
             animated: false,
             style: { stroke: "#ffffff", strokeWidth: 2 },

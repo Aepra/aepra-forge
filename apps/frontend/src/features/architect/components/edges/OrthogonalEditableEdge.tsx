@@ -38,6 +38,7 @@ const SOURCE_TARGET_PADDING = 6;
 const DETOUR_GAP = 56;
 const OUTER_DETOUR_GAP = 88;
 const CORNER_RADIUS = 14;
+const EDGE_MIN_GAP = 10;
 const DIRECTION_PRIORITY: Record<Direction, number> = {
   right: 0,
   down: 1,
@@ -123,20 +124,30 @@ const segmentsCollinearOverlap = (a: Segment, b: Segment) => {
   const aHorizontal = almostEqual(a.from.y, a.to.y);
   const bHorizontal = almostEqual(b.from.y, b.to.y);
 
-  if (aVertical && bVertical && almostEqual(a.from.x, b.from.x, OVERLAP_EPSILON)) {
+  if (aVertical && bVertical) {
     const aMinY = Math.min(a.from.y, a.to.y);
     const aMaxY = Math.max(a.from.y, a.to.y);
     const bMinY = Math.min(b.from.y, b.to.y);
     const bMaxY = Math.max(b.from.y, b.to.y);
-    return rangesOverlap(aMinY, aMaxY, bMinY, bMaxY);
+
+    if (!rangesOverlap(aMinY, aMaxY, bMinY, bMaxY)) {
+      return false;
+    }
+
+    return Math.abs(a.from.x - b.from.x) < EDGE_MIN_GAP;
   }
 
-  if (aHorizontal && bHorizontal && almostEqual(a.from.y, b.from.y, OVERLAP_EPSILON)) {
+  if (aHorizontal && bHorizontal) {
     const aMinX = Math.min(a.from.x, a.to.x);
     const aMaxX = Math.max(a.from.x, a.to.x);
     const bMinX = Math.min(b.from.x, b.to.x);
     const bMaxX = Math.max(b.from.x, b.to.x);
-    return rangesOverlap(aMinX, aMaxX, bMinX, bMaxX);
+
+    if (!rangesOverlap(aMinX, aMaxX, bMinX, bMaxX)) {
+      return false;
+    }
+
+    return Math.abs(a.from.y - b.from.y) < EDGE_MIN_GAP;
   }
 
   return false;
@@ -636,6 +647,17 @@ export default function OrthogonalEditableEdge({
     { x: targetX, y: targetY },
     obstacles,
     reservedSegments,
+    source,
+    target,
+    laneOffset
+  ) ||
+  getOrthogonalRoute(
+    { x: sourceX, y: sourceY },
+    sourceOut,
+    targetIn,
+    { x: targetX, y: targetY },
+    obstacles,
+    [],
     source,
     target,
     laneOffset
