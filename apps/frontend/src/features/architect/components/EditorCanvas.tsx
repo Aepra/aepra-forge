@@ -34,7 +34,9 @@ const CanvasInner = () => {
   const nodeTypes = useMemo(() => ({ tableErd: TableNode }), []);
 
   const onConnect = useCallback(
-    (params: Connection) =>
+    (params: Connection) => {
+      // React Flow otomatis menentukan source/target berdasarkan handle type dan drag direction
+      // Semua handle bisa berfungsi sebagai source ATAU target - fully bidirectional
       setEdges((eds) =>
         addEdge(
           {
@@ -51,7 +53,8 @@ const CanvasInner = () => {
           },
           eds
         )
-      ),
+      );
+    },
     [setEdges]
   );
 
@@ -99,7 +102,7 @@ const CanvasInner = () => {
         nodeTypes={nodeTypes}
         colorMode="dark"
         
-        // --- INI SANGAT PENTING --- asdasdasdasdas
+        // Gunakan Loose untuk koneksi bidirectional - semua handle bisa source atau target
         connectionMode={ConnectionMode.Loose} 
         connectionLineType={ConnectionLineType.SmoothStep}
         connectionLineStyle={{ stroke: "#ffffff", strokeWidth: 2 }}
