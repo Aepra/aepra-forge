@@ -16,6 +16,7 @@ class {{ table.name.capitalize() }}(Base):
 {%- for col in table.columns %}
     {{ col.name }} = Column(
         {%- if col.type == 'uuid' %}UUID(as_uuid=True)
+        {%- elif col.type == 'int' or col.type == 'int fk' %}Integer
         {%- elif col.type == 'varchar' %}String{% if col.length %}({{ col.length }}){% endif %}
         {%- elif col.type == 'timestamp' %}DateTime
         {%- else %}String{% endif %}

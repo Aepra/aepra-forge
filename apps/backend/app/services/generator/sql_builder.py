@@ -9,7 +9,7 @@ def generate_init_sql(blueprint: ProjectBlueprint) -> str:
 {% for table in tables %}
 CREATE TABLE {{ table.name }} (
 {%- for col in table.columns %}
-    {{ col.name }} {{ col.type }}{% if col.length %}({{ col.length }}){% endif %}{% if col.primary %} PRIMARY KEY{% endif %}{% if col.unique %} UNIQUE{% endif %}{% if not col.nullable %} NOT NULL{% endif %}{% if col.default == 'uuid_generate_v4()' %} DEFAULT gen_random_uuid(){% elif col.default %} DEFAULT {{ col.default }}{% endif %}{{ "," if not loop.last else "" }}
+    {{ col.name }} {% if col.type == 'int fk' %}int{% else %}{{ col.type }}{% endif %}{% if col.length %}({{ col.length }}){% endif %}{% if col.primary %} PRIMARY KEY{% endif %}{% if col.unique %} UNIQUE{% endif %}{% if not col.nullable %} NOT NULL{% endif %}{% if col.default == 'uuid_generate_v4()' %} DEFAULT gen_random_uuid(){% elif col.default %} DEFAULT {{ col.default }}{% endif %}{{ "," if not loop.last else "" }}
 {%- endfor %}
 );
 {% endfor %}

@@ -5,7 +5,7 @@ import { Handle, Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
 import { Plus, Trash2, Key, Hash, Type, FileText, ToggleLeft, Calendar, Database, Link2 } from "lucide-react";
 import { ConfirmDialog } from "../../../../components/ui/ConfirmDialog";
 
-const DATA_TYPES = ["int", "uuid", "varchar", "text", "boolean", "timestamp"];
+const DATA_TYPES = ["int", "int fk", "uuid", "varchar", "text", "boolean", "timestamp"];
 
 interface TableNodeData extends Record<string, unknown> {
   label: string;
@@ -83,10 +83,16 @@ export const TableNode = memo(({ id, data }: NodeProps<Node<TableNodeData>>) => 
     return name === "id" || column.type === "uuid";
   };
 
+  const isForeignKey = (column: any) => {
+    return (column.type || "").toString().toLowerCase() === "int fk";
+  };
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "int":
         return <Hash className="w-3 h-3" />;
+      case "int fk":
+        return <Link2 className="w-3 h-3" />;
       case "uuid":
         return <Database className="w-3 h-3" />;
       case "varchar":
@@ -239,6 +245,13 @@ export const TableNode = memo(({ id, data }: NodeProps<Node<TableNodeData>>) => 
                     <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-emerald-300">
                       <Key className="w-3 h-3" />
                       PK
+                    </span>
+                  )}
+
+                  {isForeignKey(col) && (
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-amber-300">
+                      <Link2 className="w-3 h-3" />
+                      FK
                     </span>
                   )}
                 </div>

@@ -52,6 +52,26 @@ export const Preview = () => {
 
   // Generate SQL CREATE TABLE statements
   const generateSQL = () => {
+    const normalizeSqlType = (type?: string) => {
+      switch ((type || "").toLowerCase()) {
+        case "int":
+        case "int fk":
+          return "INT";
+        case "uuid":
+          return "UUID";
+        case "varchar":
+          return "VARCHAR(255)";
+        case "text":
+          return "TEXT";
+        case "boolean":
+          return "BOOLEAN";
+        case "timestamp":
+          return "TIMESTAMP";
+        default:
+          return type || "VARCHAR(255)";
+      }
+    };
+
     return nodes.map(node => {
       const tableName = node.data.label || "table";
       const columns = Array.isArray(node.data.columns) ? node.data.columns : [];
@@ -59,7 +79,7 @@ export const Preview = () => {
       if (columns.length === 0) return "";
       
       const columnDefs = columns.map((col: any) => {
-        let def = `  ${col.name || "column"} ${col.type || "VARCHAR(255)"}`;
+        let def = `  ${col.name || "column"} ${normalizeSqlType(col.type)}`;
         if (col.primaryKey) def += " PRIMARY KEY";
         if (col.nullable === false) def += " NOT NULL";
         if (col.default) def += ` DEFAULT ${col.default}`;

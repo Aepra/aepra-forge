@@ -2,8 +2,14 @@
 
 import React from "react";
 import { Box } from "lucide-react";
+import type { RelationArrowType } from "../../index";
 
-export const Sidebar = () => {
+interface SidebarProps {
+  relationArrowType: RelationArrowType;
+  onRelationArrowTypeChange: (value: RelationArrowType) => void;
+}
+
+export const Sidebar = ({ relationArrowType, onRelationArrowTypeChange }: SidebarProps) => {
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData("application/reactflow", nodeType);
     event.dataTransfer.effectAllowed = "move";
@@ -24,6 +30,20 @@ export const Sidebar = () => {
         >
           <Box className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
           <span className="text-gray-200">Tabel Database</span>
+        </div>
+
+        <div className="rounded-lg bg-[#1a1a1c] border border-white/10 p-3">
+          <label className="text-[10px] font-semibold uppercase tracking-wider text-white/60 block mb-2">
+            Jenis Panah Relasi
+          </label>
+          <select
+            value={relationArrowType}
+            onChange={(event) => onRelationArrowTypeChange(event.target.value as RelationArrowType)}
+            className="w-full bg-[#0f0f11] border border-white/15 text-gray-200 text-xs rounded-md px-2 py-2 outline-none focus:border-cyan-400/70"
+          >
+            <option value="lurus">Lurus</option>
+            <option value="tali">Tali</option>
+          </select>
         </div>
       </div>
       
