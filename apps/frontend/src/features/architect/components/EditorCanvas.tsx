@@ -9,7 +9,6 @@ import {
   useEdgesState,
   addEdge,
   useReactFlow,
-  ReactFlowProvider,
   Connection,
   Edge,
   Node,
@@ -506,8 +505,6 @@ interface EditorCanvasProps {
   relationArrowType: RelationArrowType;
 }
 
-export const EditorCanvas = ({ relationArrowType }: EditorCanvasProps) => (
-  <ReactFlowProvider>
-    <CanvasInner relationArrowType={relationArrowType} />
-  </ReactFlowProvider>
-);
+export const EditorCanvas = ({ relationArrowType }: EditorCanvasProps) => {
+  return <CanvasInner relationArrowType={relationArrowType} />;
+};

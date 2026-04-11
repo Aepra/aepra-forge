@@ -2,23 +2,19 @@
 
 import { Code2, Copy, Check, Download } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useReactFlow } from "@xyflow/react";
+import { useEdges, useNodes } from "@xyflow/react";
 
 export const Preview = () => {
-  const { getNodes, getEdges } = useReactFlow();
   const [copied, setCopied] = useState(false);
   const [format, setFormat] = useState<"json" | "sql">("json");
   const [currentTimestamp, setCurrentTimestamp] = useState<string>("");
-  const [isClient, setIsClient] = useState(false);
+  const nodes = useNodes();
+  const edges = useEdges();
 
   // Set client-side flag and timestamp
   useEffect(() => {
-    setIsClient(true);
     setCurrentTimestamp(new Date().toISOString());
   }, []);
-
-  const nodes = getNodes();
-  const edges = getEdges();
 
   // Generate schema JSON dengan struktur yang lebih lengkap
   const generateSchema = () => {
