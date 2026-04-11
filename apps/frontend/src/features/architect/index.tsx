@@ -27,7 +27,7 @@ export const ArchitectWorkspace = () => {
   return (
     // 2. Bungkus semua di sini. Ini akan menghilangkan error #001 selamanya.
     <ReactFlowProvider> 
-      <div className="flex h-[calc(100vh-64px)] w-full overflow-hidden bg-[#0a0a0b]">
+      <div className="flex h-screen w-full overflow-hidden bg-[#0a0a0b]">
         <Sidebar
           relationArrowType={relationArrowType}
           onRelationArrowTypeChange={setRelationArrowType}
