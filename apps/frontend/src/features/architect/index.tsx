@@ -8,9 +8,21 @@ import { Preview } from "./components/ui/Preview";
 import { EditorCanvas } from "./components/EditorCanvas";
 
 export type RelationArrowType = "orthogonal" | "curved";
+const RELATION_ARROW_MODE_STORAGE_KEY = "architect.relationArrowType";
 
 export const ArchitectWorkspace = () => {
   const [relationArrowType, setRelationArrowType] = React.useState<RelationArrowType>("curved");
+
+  React.useEffect(() => {
+    const savedMode = window.localStorage.getItem(RELATION_ARROW_MODE_STORAGE_KEY);
+    if (savedMode === "orthogonal" || savedMode === "curved") {
+      setRelationArrowType(savedMode);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    window.localStorage.setItem(RELATION_ARROW_MODE_STORAGE_KEY, relationArrowType);
+  }, [relationArrowType]);
 
   return (
     // 2. Bungkus semua di sini. Ini akan menghilangkan error #001 selamanya.

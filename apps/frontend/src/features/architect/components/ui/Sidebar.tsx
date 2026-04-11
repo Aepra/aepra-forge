@@ -34,33 +34,51 @@ export const Sidebar = ({ relationArrowType, onRelationArrowTypeChange }: Sideba
           <span className="text-gray-200">Tabel Database</span>
         </div>
 
-        <div className="rounded-lg bg-[#1a1a1c] border border-white/10 p-3">
+        <div className="rounded-lg bg-[#1a1a1c] p-3">
           <label className="text-[10px] font-semibold uppercase tracking-wider text-white/60 block mb-2">
             Jenis Panah Relasi
           </label>
-          <div className="grid grid-cols-1 gap-2">
-            <button
-              type="button"
-              onClick={() => onRelationArrowTypeChange("orthogonal")}
-              className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
-                relationArrowType === "orthogonal"
-                  ? "border-cyan-400/70 bg-cyan-500/10 text-cyan-200"
-                  : "border-white/10 bg-[#0f0f11] text-gray-300 hover:border-white/20"
-              }`}
-            >
-              Orthogonal
-            </button>
-            <button
-              type="button"
-              onClick={() => onRelationArrowTypeChange("curved")}
-              className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
-                relationArrowType === "curved"
-                  ? "border-cyan-400/70 bg-cyan-500/10 text-cyan-200"
-                  : "border-white/10 bg-[#0f0f11] text-gray-300 hover:border-white/20"
-              }`}
-            >
-              Curved
-            </button>
+          <div className="flex items-center gap-2">
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => onRelationArrowTypeChange("orthogonal")}
+                aria-label="Orthogonal"
+                className={`h-9 w-9 rounded-md grid place-items-center transition-colors ${
+                  relationArrowType === "orthogonal"
+                    ? "bg-cyan-500/15 text-cyan-200"
+                    : "bg-[#0f0f11] text-gray-300 hover:bg-white/5"
+                }`}
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M4 6h10v8h6" />
+                  <path d="M20 14v4H10" />
+                </svg>
+              </button>
+              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-[#0f0f11] px-2 py-1 text-[10px] text-white/85 opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+                Orthogonal
+              </span>
+            </div>
+
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => onRelationArrowTypeChange("curved")}
+                aria-label="Curved"
+                className={`h-9 w-9 rounded-md grid place-items-center transition-colors ${
+                  relationArrowType === "curved"
+                    ? "bg-cyan-500/15 text-cyan-200"
+                    : "bg-[#0f0f11] text-gray-300 hover:bg-white/5"
+                }`}
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M4 16c4-8 12-8 16 0" />
+                </svg>
+              </button>
+              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-[#0f0f11] px-2 py-1 text-[10px] text-white/85 opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+                Curved
+              </span>
+            </div>
           </div>
         </div>
       </div>
