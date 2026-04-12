@@ -30,15 +30,21 @@ type Segment = {
   to: Point;
 };
 
+type RouteDescriptor = {
+  edgeId: string;
+  routeOrder: number | null;
+  segments: Segment[];
+};
+
 type Direction = "right" | "down" | "left" | "up";
 
-const EDGE_PORT_OFFSET = 36;
-const OBSTACLE_PADDING = 22;
-const SOURCE_TARGET_PADDING = 6;
-const DETOUR_GAP = 56;
-const OUTER_DETOUR_GAP = 88;
+const EDGE_PORT_OFFSET = 30;
+const OBSTACLE_PADDING = 4;
+const SOURCE_TARGET_PADDING = 0;
+const DETOUR_GAP = 28;
+const OUTER_DETOUR_GAP = 64;
 const CORNER_RADIUS = 14;
-const EDGE_MIN_GAP = 10;
+const DEFAULT_EDGE_MIN_GAP = 8;
 const DIRECTION_PRIORITY: Record<Direction, number> = {
   right: 0,
   down: 1,
@@ -118,7 +124,7 @@ const rangesOverlap = (aMin: number, aMax: number, bMin: number, bMax: number, e
   return end - start > epsilon;
 };
 
-const segmentsCollinearOverlap = (a: Segment, b: Segment) => {
+const segmentsCollinearOverlap = (a: Segment, b: Segment, minGap = DEFAULT_EDGE_MIN_GAP) => {
   const aVertical = almostEqual(a.from.x, a.to.x);
   const bVertical = almostEqual(b.from.x, b.to.x);
   const aHorizontal = almostEqual(a.from.y, a.to.y);
@@ -134,7 +140,7 @@ const segmentsCollinearOverlap = (a: Segment, b: Segment) => {
       return false;
     }
 
-    return Math.abs(a.from.x - b.from.x) < EDGE_MIN_GAP;
+    return Math.abs(a.from.x - b.from.x) < minGap;
   }
 
   if (aHorizontal && bHorizontal) {
@@ -147,7 +153,7 @@ const segmentsCollinearOverlap = (a: Segment, b: Segment) => {
       return false;
     }
 
-    return Math.abs(a.from.y - b.from.y) < EDGE_MIN_GAP;
+    return Math.abs(a.from.y - b.from.y) < minGap;
   }
 
   return false;
@@ -179,21 +185,63 @@ const decodePoints = (raw: string): Point[] => {
     .filter((p): p is Point => p !== null);
 };
 
-const getReservedSegmentsFromDom = (currentEdgeId: string, currentRouteOrder: number | null) => {
-  if (typeof document === "undefined") return [] as Segment[];
+let routeDescriptorCache: { frame: number; descriptors: RouteDescriptor[] } | null = null;
+
+const getFrameBucket = () => {
+  if (typeof performance !== "undefined") {
+    return Math.floor(performance.now() / 16);
+  }
+  return Math.floor(Date.now() / 16);
+};
+
+const getRouteDescriptorsFromDom = () => {
+  if (typeof document === "undefined") return [] as RouteDescriptor[];
+
+  const frame = getFrameBucket();
+  if (routeDescriptorCache && routeDescriptorCache.frame === frame) {
+    return routeDescriptorCache.descriptors;
+  }
 
   const elements = document.querySelectorAll<SVGPathElement>("[data-aepra-route='1']");
-  const reserved: Segment[] = [];
+  const descriptors: RouteDescriptor[] = [];
 
   elements.forEach((element) => {
     const edgeId = element.getAttribute("data-edge-id");
+    if (!edgeId) return;
+
+    const pointsRaw = element.getAttribute("data-route-points");
+    if (!pointsRaw) return;
+
+    const points = decodePoints(pointsRaw);
+    if (points.length < 2) return;
+
+    const routeOrderRaw = element.getAttribute("data-route-order");
+    const parsedRouteOrder = routeOrderRaw !== null ? Number(routeOrderRaw) : Number.NaN;
+    const routeOrder = Number.isFinite(parsedRouteOrder) ? parsedRouteOrder : null;
+
+    descriptors.push({
+      edgeId,
+      routeOrder,
+      segments: toSegments(points),
+    });
+  });
+
+  routeDescriptorCache = { frame, descriptors };
+  return descriptors;
+};
+
+const getReservedSegmentsFromDom = (currentEdgeId: string, currentRouteOrder: number | null) => {
+  const descriptors = getRouteDescriptorsFromDom();
+  const reserved: Segment[] = [];
+
+  descriptors.forEach((descriptor) => {
+    const edgeId = descriptor.edgeId;
     if (!edgeId || edgeId === currentEdgeId) return;
 
-    const orderRaw = element.getAttribute("data-route-order");
-    const otherOrder = orderRaw ? Number(orderRaw) : Number.NaN;
+    const otherOrder = descriptor.routeOrder;
 
     if (currentRouteOrder !== null) {
-      if (Number.isFinite(otherOrder) && otherOrder >= currentRouteOrder) {
+      if (otherOrder !== null && otherOrder >= currentRouteOrder) {
         return;
       }
     } else {
@@ -203,13 +251,7 @@ const getReservedSegmentsFromDom = (currentEdgeId: string, currentRouteOrder: nu
       }
     }
 
-    const pointsRaw = element.getAttribute("data-route-points");
-    if (!pointsRaw) return;
-
-    const points = decodePoints(pointsRaw);
-    if (points.length < 2) return;
-
-    reserved.push(...toSegments(points));
+    reserved.push(...descriptor.segments);
   });
 
   return reserved;
@@ -249,12 +291,13 @@ const isRouteClear = (
   obstacles: Obstacle[],
   reservedSegments: Segment[],
   sourceNodeId?: string,
-  targetNodeId?: string
+  targetNodeId?: string,
+  minGap = DEFAULT_EDGE_MIN_GAP
 ) => {
   const routeSegments = toSegments(points);
 
   for (const routeSegment of routeSegments) {
-    if (reservedSegments.some((reserved) => segmentsCollinearOverlap(routeSegment, reserved))) {
+    if (reservedSegments.some((reserved) => segmentsCollinearOverlap(routeSegment, reserved, minGap))) {
       return false;
     }
   }
@@ -433,7 +476,8 @@ const getOrthogonalRoute = (
   reservedSegments: Segment[],
   sourceNodeId: string | undefined,
   targetNodeId: string | undefined,
-  laneOffset: number
+  laneOffset: number,
+  minGap = DEFAULT_EDGE_MIN_GAP
 ): Point[] | null => {
   const candidates: Point[][] = [];
 
@@ -442,18 +486,18 @@ const getOrthogonalRoute = (
 
   if (straightAligned) {
     const route = [source, sourceOut, targetIn, target];
-    if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId)) {
+    if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId, minGap)) {
       candidates.push(route);
     }
   }
 
   const primaryL = [source, sourceOut, { x: targetIn.x, y: sourceOut.y }, targetIn, target];
-  if (isRouteClear(primaryL, obstacles, reservedSegments, sourceNodeId, targetNodeId)) {
+  if (isRouteClear(primaryL, obstacles, reservedSegments, sourceNodeId, targetNodeId, minGap)) {
     candidates.push(primaryL);
   }
 
   const secondaryL = [source, sourceOut, { x: sourceOut.x, y: targetIn.y }, targetIn, target];
-  if (isRouteClear(secondaryL, obstacles, reservedSegments, sourceNodeId, targetNodeId)) {
+  if (isRouteClear(secondaryL, obstacles, reservedSegments, sourceNodeId, targetNodeId, minGap)) {
     candidates.push(secondaryL);
   }
 
@@ -482,7 +526,7 @@ const getOrthogonalRoute = (
       targetIn,
       target,
     ];
-    if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId)) {
+    if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId, minGap)) {
       candidates.push(route);
     }
   }
@@ -507,7 +551,7 @@ const getOrthogonalRoute = (
       targetIn,
       target,
     ];
-    if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId)) {
+    if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId, minGap)) {
       candidates.push(route);
     }
   }
@@ -528,7 +572,7 @@ const getOrthogonalRoute = (
         targetIn,
         target,
       ];
-      if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId)) {
+      if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId, minGap)) {
         candidates.push(route);
       }
     }
@@ -543,7 +587,7 @@ const getOrthogonalRoute = (
         targetIn,
         target,
       ];
-      if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId)) {
+      if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId, minGap)) {
         candidates.push(route);
       }
     }
@@ -566,7 +610,7 @@ const getOrthogonalRoute = (
     ];
 
     for (const route of yRoutes) {
-      if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId)) {
+      if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId, minGap)) {
         return simplifyPoints(route);
       }
     }
@@ -579,7 +623,86 @@ const getOrthogonalRoute = (
     ];
 
     for (const route of xRoutes) {
-      if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId)) {
+      if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId, minGap)) {
+        return simplifyPoints(route);
+      }
+    }
+  }
+
+  return null;
+};
+
+const getOuterEscapeRoute = (
+  source: Point,
+  sourceOut: Point,
+  targetIn: Point,
+  target: Point,
+  obstacles: Obstacle[],
+  reservedSegments: Segment[],
+  sourceNodeId: string | undefined,
+  targetNodeId: string | undefined,
+  minGap = DEFAULT_EDGE_MIN_GAP
+) => {
+  if (obstacles.length === 0) return null;
+
+  const topMost = Math.min(...obstacles.map((obstacle) => obstacle.rect.top));
+  const bottomMost = Math.max(...obstacles.map((obstacle) => obstacle.rect.bottom));
+  const leftMost = Math.min(...obstacles.map((obstacle) => obstacle.rect.left));
+  const rightMost = Math.max(...obstacles.map((obstacle) => obstacle.rect.right));
+
+  const margins = [OUTER_DETOUR_GAP, OUTER_DETOUR_GAP + 64, OUTER_DETOUR_GAP + 128, OUTER_DETOUR_GAP + 192];
+
+  for (const margin of margins) {
+    const yAbove = topMost - margin;
+    const yBelow = bottomMost + margin;
+    const xLeft = leftMost - margin;
+    const xRight = rightMost + margin;
+
+    const candidates: Point[][] = [
+      [source, sourceOut, { x: sourceOut.x, y: yAbove }, { x: targetIn.x, y: yAbove }, targetIn, target],
+      [source, sourceOut, { x: sourceOut.x, y: yBelow }, { x: targetIn.x, y: yBelow }, targetIn, target],
+      [source, sourceOut, { x: xLeft, y: sourceOut.y }, { x: xLeft, y: targetIn.y }, targetIn, target],
+      [source, sourceOut, { x: xRight, y: sourceOut.y }, { x: xRight, y: targetIn.y }, targetIn, target],
+      [
+        source,
+        sourceOut,
+        { x: sourceOut.x, y: yAbove },
+        { x: xLeft, y: yAbove },
+        { x: xLeft, y: targetIn.y },
+        targetIn,
+        target,
+      ],
+      [
+        source,
+        sourceOut,
+        { x: sourceOut.x, y: yAbove },
+        { x: xRight, y: yAbove },
+        { x: xRight, y: targetIn.y },
+        targetIn,
+        target,
+      ],
+      [
+        source,
+        sourceOut,
+        { x: sourceOut.x, y: yBelow },
+        { x: xLeft, y: yBelow },
+        { x: xLeft, y: targetIn.y },
+        targetIn,
+        target,
+      ],
+      [
+        source,
+        sourceOut,
+        { x: sourceOut.x, y: yBelow },
+        { x: xRight, y: yBelow },
+        { x: xRight, y: targetIn.y },
+        targetIn,
+        target,
+      ],
+    ];
+
+    for (const route of candidates) {
+      if (isRouteClear(route, obstacles, reservedSegments, sourceNodeId, targetNodeId, minGap)) {
         return simplifyPoints(route);
       }
     }
@@ -640,7 +763,7 @@ export default function OrthogonalEditableEdge({
     })
     .filter((obstacle): obstacle is Obstacle => obstacle !== null);
 
-  const points = getOrthogonalRoute(
+  const primaryPoints = getOrthogonalRoute(
     { x: sourceX, y: sourceY },
     sourceOut,
     targetIn,
@@ -649,19 +772,39 @@ export default function OrthogonalEditableEdge({
     reservedSegments,
     source,
     target,
-    laneOffset
-  ) ||
-  getOrthogonalRoute(
-    { x: sourceX, y: sourceY },
-    sourceOut,
-    targetIn,
-    { x: targetX, y: targetY },
-    obstacles,
-    [],
-    source,
-    target,
-    laneOffset
+    laneOffset,
+    DEFAULT_EDGE_MIN_GAP
   );
+
+  const obstacleSafeFallbackPoints =
+    primaryPoints ||
+    getOrthogonalRoute(
+      { x: sourceX, y: sourceY },
+      sourceOut,
+      targetIn,
+      { x: targetX, y: targetY },
+      obstacles,
+      [],
+      source,
+      target,
+      laneOffset,
+      DEFAULT_EDGE_MIN_GAP
+    ) ||
+    getOuterEscapeRoute(
+      { x: sourceX, y: sourceY },
+      sourceOut,
+      targetIn,
+      { x: targetX, y: targetY },
+      obstacles,
+      [],
+      source,
+      target,
+      DEFAULT_EDGE_MIN_GAP
+    );
+
+  const points = obstacleSafeFallbackPoints;
+  const activeReservedSegments = primaryPoints ? reservedSegments : [];
+
   const isFinalRouteSafe =
     points &&
     isRouteClear(
@@ -671,9 +814,10 @@ export default function OrthogonalEditableEdge({
         { x: targetX, y: targetY },
       ],
       obstacles,
-      reservedSegments,
+      activeReservedSegments,
       source,
-      target
+      target,
+      DEFAULT_EDGE_MIN_GAP
     );
 
   const path = points && isFinalRouteSafe ? buildRoundedOrthogonalPath(points, CORNER_RADIUS) : "";

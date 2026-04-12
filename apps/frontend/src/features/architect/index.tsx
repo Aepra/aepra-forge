@@ -12,6 +12,7 @@ const RELATION_ARROW_MODE_STORAGE_KEY = "architect.relationArrowType";
 
 export const ArchitectWorkspace = () => {
   const [relationArrowType, setRelationArrowType] = React.useState<RelationArrowType>("curved");
+  const [isPreviewVisible, setIsPreviewVisible] = React.useState(true);
 
   React.useEffect(() => {
     const savedMode = window.localStorage.getItem(RELATION_ARROW_MODE_STORAGE_KEY);
@@ -31,6 +32,8 @@ export const ArchitectWorkspace = () => {
         <Sidebar
           relationArrowType={relationArrowType}
           onRelationArrowTypeChange={setRelationArrowType}
+          isPreviewVisible={isPreviewVisible}
+          onTogglePreview={() => setIsPreviewVisible((prev) => !prev)}
         />
         
         <main className="relative flex-1 flex flex-col overflow-hidden border-x border-white/5">
@@ -40,7 +43,7 @@ export const ArchitectWorkspace = () => {
           <EditorCanvas relationArrowType={relationArrowType} />
         </main>
 
-        <Preview />
+        {isPreviewVisible && <Preview />}
       </div>
     </ReactFlowProvider>
   );

@@ -5,6 +5,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  applyNodeChanges,
   useNodesState,
   useEdgesState,
   addEdge,
@@ -12,6 +13,7 @@ import {
   Connection,
   Edge,
   Node,
+  NodeChange,
   BackgroundVariant,
   SelectionMode,
   MarkerType,
@@ -25,6 +27,7 @@ import type { RelationArrowType } from "../index";
 import OrthogonalEditableEdge from "./edges/OrthogonalEditableEdge";
 
 const initialNodes: Node[] = [];
+const MIN_TABLE_PASSAGE_GAP = 48;
 
 type OrthogonalEdgeData = {
   laneOffset?: number;
@@ -150,6 +153,85 @@ const getSidePairScore = (
   return manhattanDistance + outwardDirectionBonus;
 };
 
+type RectBounds = {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+};
+
+const getNodeRect = (node: Node, position?: { x: number; y: number }): RectBounds => {
+  const { width, height } = getNodeVisualSize(node);
+  const x = position?.x ?? node.position.x;
+  const y = position?.y ?? node.position.y;
+
+  return {
+    left: x,
+    right: x + width,
+    top: y,
+    bottom: y + height,
+  };
+};
+
+const rectanglesOverlap = (a: RectBounds, b: RectBounds) => {
+  return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+};
+
+const resolveNodePositionWithGap = (
+  movingNode: Node,
+  desiredPosition: { x: number; y: number },
+  allNodes: Node[],
+  stagedPositions: Map<string, { x: number; y: number }>
+) => {
+  let nextPosition = { ...desiredPosition };
+
+  for (let iteration = 0; iteration < 10; iteration += 1) {
+    const movingRect = getNodeRect(movingNode, nextPosition);
+    let adjusted = false;
+
+    for (const otherNode of allNodes) {
+      if (otherNode.id === movingNode.id) continue;
+
+      const otherPosition = stagedPositions.get(otherNode.id) || otherNode.position;
+      const otherRect = getNodeRect(otherNode, otherPosition);
+      const expandedOtherRect: RectBounds = {
+        left: otherRect.left - MIN_TABLE_PASSAGE_GAP,
+        right: otherRect.right + MIN_TABLE_PASSAGE_GAP,
+        top: otherRect.top - MIN_TABLE_PASSAGE_GAP,
+        bottom: otherRect.bottom + MIN_TABLE_PASSAGE_GAP,
+      };
+
+      if (!rectanglesOverlap(movingRect, expandedOtherRect)) {
+        continue;
+      }
+
+      const shiftCandidates = [
+        { dx: expandedOtherRect.left - movingRect.right, dy: 0 },
+        { dx: expandedOtherRect.right - movingRect.left, dy: 0 },
+        { dx: 0, dy: expandedOtherRect.top - movingRect.bottom },
+        { dx: 0, dy: expandedOtherRect.bottom - movingRect.top },
+      ];
+
+      shiftCandidates.sort((a, b) => Math.abs(a.dx) + Math.abs(a.dy) - (Math.abs(b.dx) + Math.abs(b.dy)));
+      const bestShift = shiftCandidates[0];
+
+      nextPosition = {
+        x: nextPosition.x + bestShift.dx,
+        y: nextPosition.y + bestShift.dy,
+      };
+
+      adjusted = true;
+      break;
+    }
+
+    if (!adjusted) {
+      break;
+    }
+  }
+
+  return nextPosition;
+};
+
 const getPreferredSides = (sourceNode: Node, targetNode: Node) => {
   const sidePairs: Array<{ sourceSide: "left" | "right"; targetSide: "left" | "right" }> = [
     { sourceSide: "left", targetSide: "left" },
@@ -273,8 +355,10 @@ interface CanvasInnerProps {
 
 const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(initialNodes);
+  const [nodes, setNodes] = useNodesState<Node>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [isNodeDragging, setIsNodeDragging] = React.useState(false);
+  const isNodeDraggingRef = useRef(false);
   const { screenToFlowPosition } = useReactFlow();
   const [edgeContextMenu, setEdgeContextMenu] = React.useState<{
     edgeId: string;
@@ -291,12 +375,35 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
   const nodeTypes = useMemo(() => ({ tableErd: TableNode }), []);
   const edgeTypes = useMemo(() => ({ orthogonalEditable: OrthogonalEditableEdge }), []);
 
+  const applyEdgeLayoutOptimization = useCallback((inputEdges: Edge[], currentNodes: Node[]) => {
+    const optimized = optimizeExistingOrthogonalEdges(inputEdges, currentNodes);
+    return normalizeOrthogonalEdgeOrder(optimized);
+  }, []);
+
   useEffect(() => {
-    setEdges((prevEdges) => {
-      const optimized = optimizeExistingOrthogonalEdges(prevEdges, nodes);
-      return normalizeOrthogonalEdgeOrder(optimized);
-    });
-  }, [setEdges, nodes, edges.length]);
+    if (edges.length === 0) return;
+
+    const debounceMs = isNodeDragging ? 140 : 70;
+    const timer = window.setTimeout(() => {
+      setEdges((prevEdges) => applyEdgeLayoutOptimization(prevEdges, nodes));
+    }, debounceMs);
+
+    return () => window.clearTimeout(timer);
+  }, [setEdges, nodes, edges.length, isNodeDragging, applyEdgeLayoutOptimization]);
+
+  const onNodeDragStart = useCallback(() => {
+    if (isNodeDraggingRef.current) return;
+    isNodeDraggingRef.current = true;
+    setIsNodeDragging(true);
+  }, []);
+
+  const onNodeDragStop = useCallback(() => {
+    isNodeDraggingRef.current = false;
+    setIsNodeDragging(false);
+
+    // Force final reroute immediately after drag stops for best visual result.
+    setEdges((prevEdges) => applyEdgeLayoutOptimization(prevEdges, nodes));
+  }, [setEdges, nodes, applyEdgeLayoutOptimization]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -334,6 +441,41 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
       );
     },
     [setEdges, nodes, edges, edgeType, relationArrowType]
+  );
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange<Node>[]) => {
+      setNodes((prevNodes) => {
+        const stagedPositions = new Map<string, { x: number; y: number }>();
+
+        const constrainedChanges = changes.map((change) => {
+          if (change.type !== "position" || !change.position) {
+            return change;
+          }
+
+          const movingNode = prevNodes.find((node) => node.id === change.id);
+          if (!movingNode) {
+            return change;
+          }
+
+          const constrainedPosition = resolveNodePositionWithGap(
+            movingNode,
+            change.position,
+            prevNodes,
+            stagedPositions
+          );
+
+          stagedPositions.set(change.id, constrainedPosition);
+          return {
+            ...change,
+            position: constrainedPosition,
+          };
+        });
+
+        return applyNodeChanges(constrainedChanges, prevNodes);
+      });
+    },
+    [setNodes]
   );
 
   const isValidRelationshipConnection = useCallback(
@@ -411,7 +553,13 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
         },
       };
 
-      setNodes((nds) => nds.concat(newNode));
+      setNodes((nds) => {
+        const constrainedPosition = resolveNodePositionWithGap(newNode, position, nds, new Map());
+        return nds.concat({
+          ...newNode,
+          position: constrainedPosition,
+        });
+      });
     },
     [screenToFlowPosition, setNodes, nodes.length]
   );
@@ -448,6 +596,8 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onEdgeContextMenu={onEdgeContextMenu}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDragStop={onNodeDragStop}
         onDrop={onDrop}
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}

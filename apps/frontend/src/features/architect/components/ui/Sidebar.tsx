@@ -1,15 +1,37 @@
 "use client";
 
 import React from "react";
-import { Box } from "lucide-react";
+import { AlertTriangle, BookOpenText, Box, CheckCircle2, Eye, EyeOff, KeyRound, Link2, X } from "lucide-react";
 import type { RelationArrowType } from "../../index";
 
 interface SidebarProps {
   relationArrowType: RelationArrowType;
   onRelationArrowTypeChange: (value: RelationArrowType) => void;
+  isPreviewVisible: boolean;
+  onTogglePreview: () => void;
 }
 
-export const Sidebar = ({ relationArrowType, onRelationArrowTypeChange }: SidebarProps) => {
+export const Sidebar = ({
+  relationArrowType,
+  onRelationArrowTypeChange,
+  isPreviewVisible,
+  onTogglePreview,
+}: SidebarProps) => {
+  const [isRulesOpen, setIsRulesOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isRulesOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsRulesOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isRulesOpen]);
+
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData("application/reactflow", nodeType);
     event.dataTransfer.effectAllowed = "move";
@@ -81,6 +103,32 @@ export const Sidebar = ({ relationArrowType, onRelationArrowTypeChange }: Sideba
             </div>
           </div>
         </div>
+
+        <div className="mt-3 flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsRulesOpen(true)}
+            className="group flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-white/70 transition-colors hover:bg-white/5 hover:text-cyan-200"
+            aria-label="Buka aturan relasi"
+          >
+            <BookOpenText className="h-5 w-5 text-cyan-300/90 group-hover:text-cyan-200" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider">Rules</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onTogglePreview}
+            className="group flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-white/70 transition-colors hover:bg-white/5 hover:text-cyan-200"
+            aria-label={isPreviewVisible ? "Sembunyikan preview" : "Tampilkan preview"}
+          >
+            {isPreviewVisible ? (
+              <EyeOff className="h-5 w-5 text-cyan-300/90 group-hover:text-cyan-200" />
+            ) : (
+              <Eye className="h-5 w-5 text-cyan-300/90 group-hover:text-cyan-200" />
+            )}
+            <span className="text-[10px] font-semibold uppercase tracking-wider">Preview</span>
+          </button>
+        </div>
       </div>
       
       <div className="mt-auto p-3 bg-primary/5 border border-primary/10 rounded-md">
@@ -88,6 +136,55 @@ export const Sidebar = ({ relationArrowType, onRelationArrowTypeChange }: Sideba
           💡 <b>Tips:</b> Tarik tabel ke kanvas. Untuk menghubungkan relasi, tarik garis dari bulatan biru di sisi kolom.
         </p>
       </div>
+
+      {isRulesOpen && (
+        <div
+          className="fixed inset-0 z-[1400] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setIsRulesOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-white/15 bg-[#111115] p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BookOpenText className="h-4 w-4 text-cyan-300" />
+                <h3 className="text-sm font-semibold text-white">Rules Relasi</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRulesOpen(false)}
+                className="rounded-md p-1 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label="Tutup aturan relasi"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-[12px] leading-relaxed">
+              <div className="flex items-start gap-2 rounded-md bg-emerald-500/10 px-2.5 py-2 text-emerald-200">
+                <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                <span>Tarik relasi dari FK ke PK.</span>
+              </div>
+
+              <div className="flex items-start gap-2 rounded-md bg-emerald-500/10 px-2.5 py-2 text-emerald-200">
+                <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                <span>Satu PK boleh menerima banyak relasi masuk.</span>
+              </div>
+
+              <div className="flex items-start gap-2 rounded-md bg-amber-500/10 px-2.5 py-2 text-amber-200">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                <span>Tidak boleh FK -&gt; FK, PK -&gt; PK, self relation, dan relasi duplikat.</span>
+              </div>
+
+              <div className="flex items-start gap-2 rounded-md bg-amber-500/10 px-2.5 py-2 text-amber-200">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                <span>Satu kolom FK hanya boleh punya satu tujuan PK.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 };
