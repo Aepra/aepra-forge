@@ -1,15 +1,17 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  ArrowLeft,
   BookOpenText,
   Box,
   CheckCircle2,
   Eye,
   EyeOff,
+  Folder,
   Gauge,
-  MoveRight,
   Layers,
   Palette,
   Search,
@@ -37,6 +39,7 @@ export const Sidebar = ({
   isPreviewVisible,
   onTogglePreview,
 }: SidebarProps) => {
+  const router = useRouter();
   const { setEdges, setCenter, fitView } = useReactFlow();
   const nodes = useNodes();
   const edges = useEdges();
@@ -240,27 +243,86 @@ export const Sidebar = ({
     setCenter(x, y, { zoom: 1.1, duration: 280 });
   };
 
-  return (
-    <aside className="w-64 border-r border-white/5 bg-[#111113] flex flex-col p-4">
-      <div className="mb-4 h-9 rounded-md border border-white/10 bg-[#17171a]" />
+  const onGoBack = () => {
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
 
-      <div className="mb-6">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground block mb-4">
+    router.push("/");
+  };
+
+  const sectionClassName = "mt-2 rounded-xl border border-white/10 bg-[#17171a] p-2.5";
+  const sectionLabelClassName =
+    "mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/65";
+
+  return (
+    <aside className="w-64 h-full shrink-0 border-r border-white/5 bg-[#111113] flex flex-col">
+      <div className="sticky top-0 z-20 border-b border-white/10 bg-[#121214]/95 px-3 py-2 backdrop-blur">
+        <div className="flex items-center justify-between rounded-lg border border-white/10 bg-[#17171a] px-2 py-1.5">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onGoBack}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-white/10 bg-[#0f0f11] text-white/75 transition-colors hover:border-cyan-300/40 hover:text-cyan-200"
+              aria-label="Kembali ke halaman sebelumnya"
+              title="Back"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+            </button>
+
+            <button
+              type="button"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-white/10 bg-[#0f0f11] text-white/70"
+              aria-label="Folder"
+              title="Folder"
+            >
+              <Folder className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80">Architect</span>
+          <span className="h-7 w-7" aria-hidden="true" />
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
+        <p className="mb-4 text-[10px] leading-relaxed text-white/45">Bangun tabel, atur relasi, lalu ekspor skema dengan cepat.</p>
+
+        <div className="space-y-2.5">
+        <div className={sectionClassName}>
+          <label className={sectionLabelClassName}>
+            <Gauge className="h-3 w-3" /> Quick Actions
+          </label>
+          <button
+            type="button"
+            onClick={() => fitView({ padding: 0.2, duration: 300 })}
+            className="w-full rounded-md bg-[#0f0f11] px-2 py-1.5 text-[10px] text-white/75 transition-colors hover:bg-white/5"
+          >
+            Focus All Nodes
+          </button>
+        </div>
+
+        <span className="text-[10px] font-bold uppercase tracking-widest text-white/45 block">
           Components
         </span>
 
         {/* --- KOMPONEN TABEL SAJA --- */}
         <div
-          className="flex items-center gap-3 p-3 rounded-lg bg-[#1a1a1c] border border-white/10 cursor-grab active:cursor-grabbing hover:border-primary transition-all text-sm group mb-3"
+          className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-[#17171a] px-2.5 py-2.5 text-sm transition-all hover:border-cyan-300/35 group cursor-grab active:cursor-grabbing"
           onDragStart={(event) => onDragStart(event, "tableErd")} 
           draggable
         >
-          <Box className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
-          <span className="text-gray-200">Tabel Database</span>
+          <div className="grid h-7 w-7 place-items-center rounded-md bg-cyan-500/10 text-cyan-200">
+            <Box className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
+          </div>
+          <div>
+            <p className="text-[11px] font-medium text-white/90">Tabel Database</p>
+            <p className="text-[10px] text-white/45">Drag ke kanvas untuk mulai desain</p>
+          </div>
         </div>
 
-        <div className="rounded-lg bg-[#1a1a1c] p-2">
-          <label className="text-[10px] font-semibold uppercase tracking-wider text-white/60 block mb-1.5">
+        <div className={sectionClassName}>
+          <label className={sectionLabelClassName}>
             Jenis Panah Relasi
           </label>
           <div className="flex items-center gap-1.5">
@@ -353,8 +415,8 @@ export const Sidebar = ({
           </div>
         </div>
 
-        <div className="mt-2 rounded-lg bg-[#1a1a1c] p-2">
-          <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/60">
+        <div className={sectionClassName}>
+          <label className={sectionLabelClassName}>
             <Search className="h-3 w-3" /> Search and Jump
           </label>
           <input
@@ -383,8 +445,8 @@ export const Sidebar = ({
           )}
         </div>
 
-        <div className="mt-2 rounded-lg bg-[#1a1a1c] p-2">
-          <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/60">
+        <div className={sectionClassName}>
+          <label className={sectionLabelClassName}>
             <Layers className="h-3 w-3" /> Relation Inspector
           </label>
           {selectedEdge ? (
@@ -412,8 +474,8 @@ export const Sidebar = ({
           )}
         </div>
 
-        <div className="mt-2 rounded-lg bg-[#1a1a1c] p-2">
-          <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/60">
+        <div className={sectionClassName}>
+          <label className={sectionLabelClassName}>
             <AlertTriangle className="h-3 w-3" /> Validation
           </label>
           {validationItems.length > 0 ? (
@@ -429,10 +491,23 @@ export const Sidebar = ({
           )}
         </div>
 
-        <div className="mt-2 rounded-lg bg-[#1a1a1c] p-2">
-          <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/60">
-            <Gauge className="h-3 w-3" /> Theme Presets
+        <div className={sectionClassName}>
+          <label className={sectionLabelClassName}>
+            <Gauge className="h-3 w-3" /> View and Theme
           </label>
+          <button
+            type="button"
+            onClick={onTogglePreview}
+            className="mb-1.5 flex w-full items-center justify-center gap-1.5 rounded-md bg-[#0f0f11] px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/75 transition-colors hover:bg-white/5"
+            aria-label={isPreviewVisible ? "Sembunyikan preview" : "Tampilkan preview"}
+          >
+            {isPreviewVisible ? (
+              <EyeOff className="h-3.5 w-3.5 text-cyan-300/90" />
+            ) : (
+              <Eye className="h-3.5 w-3.5 text-cyan-300/90" />
+            )}
+            <span>{isPreviewVisible ? "Hide Preview" : "Show Preview"}</span>
+          </button>
           <div className="flex gap-1">
             {(["graphite", "ocean", "paper"] as ArchitectTheme[]).map((themeItem) => (
               <button
@@ -449,46 +524,24 @@ export const Sidebar = ({
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() => fitView({ padding: 0.2, duration: 300 })}
-            className="mt-1.5 w-full rounded bg-[#0f0f11] px-2 py-1 text-[10px] text-white/70 hover:bg-white/5"
-          >
-            Focus All Nodes
-          </button>
         </div>
 
-        <div className="mt-3 flex items-center justify-center gap-2">
+        <div className="mt-3">
           <button
             type="button"
             onClick={() => setIsRulesOpen(true)}
-            className="group flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-white/70 transition-colors hover:bg-white/5 hover:text-cyan-200"
+            className="group flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-[#17171a] px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-white/70 transition-colors hover:border-cyan-300/35 hover:text-cyan-200"
             aria-label="Buka aturan relasi"
           >
-            <BookOpenText className="h-5 w-5 text-cyan-300/90 group-hover:text-cyan-200" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider">Rules</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onTogglePreview}
-            className="group flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-white/70 transition-colors hover:bg-white/5 hover:text-cyan-200"
-            aria-label={isPreviewVisible ? "Sembunyikan preview" : "Tampilkan preview"}
-          >
-            {isPreviewVisible ? (
-              <EyeOff className="h-5 w-5 text-cyan-300/90 group-hover:text-cyan-200" />
-            ) : (
-              <Eye className="h-5 w-5 text-cyan-300/90 group-hover:text-cyan-200" />
-            )}
-            <span className="text-[10px] font-semibold uppercase tracking-wider">Preview</span>
+            <BookOpenText className="h-3.5 w-3.5 text-cyan-300/90 group-hover:text-cyan-200" />
+            <span>Rules</span>
           </button>
         </div>
+
+        <div className="mt-3 rounded-xl border border-cyan-400/15 bg-cyan-500/5 px-2.5 py-2 text-[10px] leading-relaxed text-cyan-100/85">
+          <p><span className="font-semibold text-cyan-100">Tips:</span> Tarik tabel ke kanvas, lalu hubungkan relasi dari bulatan biru tiap kolom.</p>
+        </div>
       </div>
-      
-      <div className="mt-auto p-3 bg-primary/5 border border-primary/10 rounded-md">
-        <p className="text-[10px] text-primary/80 leading-relaxed">
-          💡 <b>Tips:</b> Tarik tabel ke kanvas. Untuk menghubungkan relasi, tarik garis dari bulatan biru di sisi kolom.
-        </p>
       </div>
 
       {isRulesOpen && (
