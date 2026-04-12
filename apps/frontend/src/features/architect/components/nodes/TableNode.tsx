@@ -197,14 +197,14 @@ export const TableNode = memo(({ id, data }: NodeProps<Node<TableNodeData>>) => 
                 type="target" 
                 position={Position.Left} 
                 id={`left-${col.id}`} 
-                className="!w-2 !h-2 !bg-[#00f2ff] !border-none opacity-0 group-hover/row:opacity-100"
+                className="!w-2 !h-2 !bg-[#00f2ff] !border-none opacity-0 group-hover/row:opacity-100 transition-opacity"
                 isConnectable={true}
               />
               <Handle 
                 type="source" 
                 position={Position.Left} 
                 id={`left-${col.id}-source`} 
-                className="!w-2 !h-2 !bg-[#00f2ff] !border-none opacity-0 group-hover/row:opacity-100"
+                className="!w-2 !h-2 !bg-[#00f2ff] !border-none opacity-0 group-hover/row:opacity-100 transition-opacity"
                 isConnectable={true}
               />
               
@@ -279,14 +279,14 @@ export const TableNode = memo(({ id, data }: NodeProps<Node<TableNodeData>>) => 
                 type="target" 
                 position={Position.Right} 
                 id={`right-${col.id}`} 
-                className="!w-2 !h-2 !bg-[#00f2ff] !border-none opacity-0 group-hover/row:opacity-100"
+                className="!w-2 !h-2 !bg-[#00f2ff] !border-none opacity-0 group-hover/row:opacity-100 transition-opacity"
                 isConnectable={true}
               />
               <Handle 
                 type="source" 
                 position={Position.Right} 
                 id={`right-${col.id}-source`} 
-                className="!w-2 !h-2 !bg-[#00f2ff] !border-none opacity-0 group-hover/row:opacity-100"
+                className="!w-2 !h-2 !bg-[#00f2ff] !border-none opacity-0 group-hover/row:opacity-100 transition-opacity"
                 isConnectable={true}
               />
             </div>

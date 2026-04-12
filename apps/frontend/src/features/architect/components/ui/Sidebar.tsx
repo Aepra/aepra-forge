@@ -1,7 +1,19 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, BookOpenText, Box, CheckCircle2, Eye, EyeOff, KeyRound, Link2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  BookOpenText,
+  Box,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Palette,
+  KeyRound,
+  Link2,
+  X,
+} from "lucide-react";
+import { Edge, useOnSelectionChange, useReactFlow } from "@xyflow/react";
 import type { RelationArrowType } from "../../index";
 
 interface SidebarProps {
@@ -17,7 +29,93 @@ export const Sidebar = ({
   isPreviewVisible,
   onTogglePreview,
 }: SidebarProps) => {
+  const { setEdges } = useReactFlow();
   const [isRulesOpen, setIsRulesOpen] = React.useState(false);
+  const [selectedEdgeId, setSelectedEdgeId] = React.useState<string | null>(null);
+  const [selectedEdgeColor, setSelectedEdgeColor] = React.useState("#ffffff");
+  const colorInputRef = React.useRef<HTMLInputElement>(null);
+
+  const DEFAULT_EDGE_COLORS = React.useMemo(
+    () => ["#ffffff", "#22d3ee", "#34d399", "#f59e0b", "#f87171", "#c084fc", "#60a5fa", "#f472b6"],
+    []
+  );
+  const [edgeColorOptions, setEdgeColorOptions] = React.useState<string[]>(DEFAULT_EDGE_COLORS);
+
+  const resolveEdgeStroke = React.useCallback((edge: Edge) => {
+    const styleStroke = typeof edge.style?.stroke === "string" ? edge.style.stroke : null;
+    if (styleStroke) return styleStroke;
+
+    const markerStroke =
+      edge.markerEnd && typeof edge.markerEnd === "object" && "color" in edge.markerEnd
+        ? (edge.markerEnd.color as string | undefined)
+        : undefined;
+
+    return markerStroke || "#ffffff";
+  }, []);
+
+  useOnSelectionChange({
+    onChange: ({ edges }) => {
+      const activeEdge = edges.length > 0 ? edges[0] : null;
+      if (!activeEdge) {
+        setSelectedEdgeId(null);
+        setSelectedEdgeColor("#ffffff");
+        return;
+      }
+
+      setSelectedEdgeId(activeEdge.id);
+      setSelectedEdgeColor(resolveEdgeStroke(activeEdge));
+    },
+  });
+
+  const applySelectedEdgeColor = React.useCallback(
+    (color: string) => {
+      if (!selectedEdgeId) return;
+
+      setSelectedEdgeColor(color);
+      setEdges((prevEdges) =>
+        prevEdges.map((edge) => {
+          if (edge.id !== selectedEdgeId) return edge;
+
+          const markerEnd =
+            edge.markerEnd && typeof edge.markerEnd === "object"
+              ? { ...edge.markerEnd, color }
+              : edge.markerEnd;
+
+          return {
+            ...edge,
+            style: {
+              ...(edge.style || {}),
+              stroke: color,
+              strokeWidth: 2,
+            },
+            markerEnd,
+          };
+        })
+      );
+    },
+    [selectedEdgeId, setEdges]
+  );
+
+  const onPickCustomColor = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const customColor = event.target.value;
+    if (!customColor) return;
+
+    setEdgeColorOptions((prev) => {
+      const exists = prev.some((item) => item.toLowerCase() === customColor.toLowerCase());
+      if (exists) return prev;
+      return [customColor, ...prev].slice(0, 28);
+    });
+
+    applySelectedEdgeColor(customColor);
+    event.currentTarget.value = customColor;
+  };
+
+  const onPaletteWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+
+    event.currentTarget.scrollLeft += event.deltaY;
+    event.preventDefault();
+  };
 
   React.useEffect(() => {
     if (!isRulesOpen) return;
@@ -56,28 +154,28 @@ export const Sidebar = ({
           <span className="text-gray-200">Tabel Database</span>
         </div>
 
-        <div className="rounded-lg bg-[#1a1a1c] p-3">
-          <label className="text-[10px] font-semibold uppercase tracking-wider text-white/60 block mb-2">
+        <div className="rounded-lg bg-[#1a1a1c] p-2">
+          <label className="text-[10px] font-semibold uppercase tracking-wider text-white/60 block mb-1.5">
             Jenis Panah Relasi
           </label>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <div className="relative group">
               <button
                 type="button"
                 onClick={() => onRelationArrowTypeChange("orthogonal")}
                 aria-label="Orthogonal"
-                className={`h-9 w-9 rounded-md grid place-items-center transition-colors ${
+                className={`h-8 w-8 rounded-md grid place-items-center transition-colors ${
                   relationArrowType === "orthogonal"
                     ? "bg-cyan-500/15 text-cyan-200"
                     : "bg-[#0f0f11] text-gray-300 hover:bg-white/5"
                 }`}
               >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M4 6h10v8h6" />
                   <path d="M20 14v4H10" />
                 </svg>
               </button>
-              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-[#0f0f11] px-2 py-1 text-[10px] text-white/85 opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+              <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-[#0f0f11] px-1.5 py-0.5 text-[9px] text-white/85 opacity-0 shadow-md transition-opacity group-hover:opacity-100">
                 Orthogonal
               </span>
             </div>
@@ -87,20 +185,66 @@ export const Sidebar = ({
                 type="button"
                 onClick={() => onRelationArrowTypeChange("curved")}
                 aria-label="Curved"
-                className={`h-9 w-9 rounded-md grid place-items-center transition-colors ${
+                className={`h-8 w-8 rounded-md grid place-items-center transition-colors ${
                   relationArrowType === "curved"
                     ? "bg-cyan-500/15 text-cyan-200"
                     : "bg-[#0f0f11] text-gray-300 hover:bg-white/5"
                 }`}
               >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M4 16c4-8 12-8 16 0" />
                 </svg>
               </button>
-              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-[#0f0f11] px-2 py-1 text-[10px] text-white/85 opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+              <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-[#0f0f11] px-1.5 py-0.5 text-[9px] text-white/85 opacity-0 shadow-md transition-opacity group-hover:opacity-100">
                 Curved
               </span>
             </div>
+
+            {selectedEdgeId && (
+              <div className="ml-1 flex items-center gap-0.5">
+                <div
+                  className="w-[72px] overflow-x-auto px-0.5 py-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                  onWheel={onPaletteWheel}
+                >
+                  <div className="grid max-h-5 grid-flow-col grid-rows-2 auto-cols-max gap-0.5">
+                    {edgeColorOptions.map((color) => {
+                      const isActive = selectedEdgeColor.toLowerCase() === color.toLowerCase();
+
+                      return (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => applySelectedEdgeColor(color)}
+                          className={`h-2.5 w-2.5 shrink-0 rounded-full border transition-transform hover:scale-110 ${
+                            isActive ? "border-white" : "border-white/25"
+                          }`}
+                          style={{ backgroundColor: color }}
+                          aria-label={`Pilih warna relasi ${color}`}
+                          title={color}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => colorInputRef.current?.click()}
+                  className="h-3.5 w-3.5 shrink-0 rounded-full bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 flex items-center justify-center"
+                  aria-label="Pilih custom color"
+                  title="Custom color"
+                >
+                  <Palette className="mx-auto h-2 w-2" />
+                </button>
+                <input
+                  ref={colorInputRef}
+                  type="color"
+                  value={selectedEdgeColor || "#ffffff"}
+                  className="hidden"
+                  onChange={onPickCustomColor}
+                />
+              </div>
+            )}
           </div>
         </div>
 

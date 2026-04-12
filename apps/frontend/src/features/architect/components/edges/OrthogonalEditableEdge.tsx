@@ -39,12 +39,12 @@ type RouteDescriptor = {
 type Direction = "right" | "down" | "left" | "up";
 
 const EDGE_PORT_OFFSET = 30;
-const OBSTACLE_PADDING = 4;
-const SOURCE_TARGET_PADDING = 0;
+const OBSTACLE_PADDING = 14;
+const SOURCE_TARGET_PADDING = 8;
 const DETOUR_GAP = 28;
 const OUTER_DETOUR_GAP = 64;
 const CORNER_RADIUS = 14;
-const DEFAULT_EDGE_MIN_GAP = 8;
+const DEFAULT_EDGE_MIN_GAP = 14;
 const DIRECTION_PRIORITY: Record<Direction, number> = {
   right: 0,
   down: 1,
@@ -140,7 +140,7 @@ const segmentsCollinearOverlap = (a: Segment, b: Segment, minGap = DEFAULT_EDGE_
       return false;
     }
 
-    return Math.abs(a.from.x - b.from.x) < minGap;
+    return Math.abs(a.from.x - b.from.x) <= minGap;
   }
 
   if (aHorizontal && bHorizontal) {
@@ -153,7 +153,7 @@ const segmentsCollinearOverlap = (a: Segment, b: Segment, minGap = DEFAULT_EDGE_
       return false;
     }
 
-    return Math.abs(a.from.y - b.from.y) < minGap;
+    return Math.abs(a.from.y - b.from.y) <= minGap;
   }
 
   return false;
@@ -504,7 +504,7 @@ const getOrthogonalRoute = (
   const midY = (sourceOut.y + targetIn.y) / 2;
   const midX = (sourceOut.x + targetIn.x) / 2;
   const detourGap = DETOUR_GAP;
-  const lane = laneOffset * 0.25;
+  const lane = laneOffset * 0.4;
 
   const yCandidates = uniqueCandidates([
     sourceOut.y,
@@ -746,6 +746,7 @@ export default function OrthogonalEditableEdge({
   data,
 }: EdgeProps) {
   const { getNodes } = useReactFlow();
+  const [isHovered, setIsHovered] = React.useState(false);
   const edgeData = (data || {}) as EdgeData;
   const routeOrder = typeof edgeData.routeOrder === "number" ? edgeData.routeOrder : null;
 
@@ -763,7 +764,11 @@ export default function OrthogonalEditableEdge({
     })
     .filter((obstacle): obstacle is Obstacle => obstacle !== null);
 
-  const primaryPoints = getOrthogonalRoute(
+  const strictGap = DEFAULT_EDGE_MIN_GAP;
+  const mediumGap = Math.max(10, strictGap - 4);
+  const relaxedGap = Math.max(7, strictGap - 7);
+
+  const pointsWithReservedStrict = getOrthogonalRoute(
     { x: sourceX, y: sourceY },
     sourceOut,
     targetIn,
@@ -773,11 +778,52 @@ export default function OrthogonalEditableEdge({
     source,
     target,
     laneOffset,
-    DEFAULT_EDGE_MIN_GAP
+    strictGap
   );
 
-  const obstacleSafeFallbackPoints =
-    primaryPoints ||
+  const pointsWithReservedMedium =
+    pointsWithReservedStrict ||
+    getOrthogonalRoute(
+      { x: sourceX, y: sourceY },
+      sourceOut,
+      targetIn,
+      { x: targetX, y: targetY },
+      obstacles,
+      reservedSegments,
+      source,
+      target,
+      laneOffset,
+      mediumGap
+    );
+
+  const pointsWithReservedRelaxed =
+    pointsWithReservedMedium ||
+    getOrthogonalRoute(
+      { x: sourceX, y: sourceY },
+      sourceOut,
+      targetIn,
+      { x: targetX, y: targetY },
+      obstacles,
+      reservedSegments,
+      source,
+      target,
+      laneOffset,
+      relaxedGap
+    ) ||
+    getOuterEscapeRoute(
+      { x: sourceX, y: sourceY },
+      sourceOut,
+      targetIn,
+      { x: targetX, y: targetY },
+      obstacles,
+      reservedSegments,
+      source,
+      target,
+      relaxedGap
+    );
+
+  const pointsWithoutReserved =
+    pointsWithReservedRelaxed ||
     getOrthogonalRoute(
       { x: sourceX, y: sourceY },
       sourceOut,
@@ -788,7 +834,7 @@ export default function OrthogonalEditableEdge({
       source,
       target,
       laneOffset,
-      DEFAULT_EDGE_MIN_GAP
+      relaxedGap
     ) ||
     getOuterEscapeRoute(
       { x: sourceX, y: sourceY },
@@ -799,44 +845,49 @@ export default function OrthogonalEditableEdge({
       [],
       source,
       target,
-      DEFAULT_EDGE_MIN_GAP
+      relaxedGap
     );
 
-  const points = obstacleSafeFallbackPoints;
-  const activeReservedSegments = primaryPoints ? reservedSegments : [];
-
-  const isFinalRouteSafe =
-    points &&
-    isRouteClear(
-      [
-        { x: sourceX, y: sourceY },
-        ...points.slice(1, -1),
-        { x: targetX, y: targetY },
-      ],
-      obstacles,
-      activeReservedSegments,
-      source,
-      target,
-      DEFAULT_EDGE_MIN_GAP
-    );
-
-  const path = points && isFinalRouteSafe ? buildRoundedOrthogonalPath(points, CORNER_RADIUS) : "";
+  const points = pointsWithoutReserved;
+  const path = points ? buildRoundedOrthogonalPath(points, CORNER_RADIUS) : "";
   const serializedPoints = points ? encodePoints(points) : "";
+  const baseStroke = style?.stroke || "#ffffff";
+  const activeStroke = baseStroke;
+  const activeStrokeWidth = isHovered ? 2 : 1.6;
+  const activeStrokeOpacity = isHovered ? 0.9 : 0.55;
 
   return (
     <>
+      {path && isHovered && (
+        <path
+          d={path}
+          fill="none"
+          stroke={baseStroke}
+          strokeOpacity={0.16}
+          strokeWidth={4}
+          pointerEvents="none"
+        />
+      )}
       <BaseEdge
         path={path}
         markerEnd={markerEnd}
-        style={{ stroke: "#ffffff", strokeWidth: 2, strokeLinecap: "round", ...(style || {}) }}
+        style={{
+          ...(style || {}),
+          stroke: activeStroke,
+          strokeWidth: activeStrokeWidth,
+          strokeOpacity: activeStrokeOpacity,
+          strokeLinecap: "round",
+        }}
       />
       {path && (
         <path
           d={path}
           fill="none"
           stroke="transparent"
-          strokeWidth={1}
-          pointerEvents="none"
+          strokeWidth={14}
+          pointerEvents="stroke"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
           data-aepra-route="1"
           data-edge-id={id}
           data-route-order={routeOrder !== null ? routeOrder : undefined}
