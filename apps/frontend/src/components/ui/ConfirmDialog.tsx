@@ -8,6 +8,8 @@ interface ConfirmDialogProps {
   message: string;
   onConfirm: () => void;
   onCancel: () => void;
+  confirmLabel?: string;
+  cancelLabel?: string;
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -16,26 +18,28 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   message,
   onConfirm,
   onCancel,
+  confirmLabel = "Delete",
+  cancelLabel = "Cancel",
 }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-      <div className="bg-black/80 border border-white/40 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl">
-        <h3 className="text-white text-lg font-bold mb-2">{title}</h3>
-        <p className="text-white/70 text-sm mb-6">{message}</p>
-        <div className="flex gap-3 justify-end">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-xl border border-white/15 bg-[#111115] p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-white/70">{message}</p>
+        <div className="mt-4 flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded transition-colors"
+            className="rounded-md px-4 py-2 text-sm text-white/60 transition-colors hover:bg-white/10 hover:text-white"
           >
-            Cancel
+            {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
+            className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-cyan-200"
           >
-            Delete
+            {confirmLabel}
           </button>
         </div>
       </div>

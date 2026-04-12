@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { NavbarWrapper } from "@/components/shared/NavbarWrapper";
+import { AuthSessionProvider } from "@/components/providers/AuthSessionProvider";
 
 // Konfigurasi Font
 const geistSans = Geist({
@@ -29,10 +30,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}
       >
-        {/* Bungkus children dengan NavbarWrapper */}
-        <NavbarWrapper>
-          {children}
-        </NavbarWrapper>
+        <AuthSessionProvider>
+          {/* Bungkus children dengan NavbarWrapper */}
+          <NavbarWrapper>
+            {children}
+          </NavbarWrapper>
+        </AuthSessionProvider>
       </body>
     </html>
   );

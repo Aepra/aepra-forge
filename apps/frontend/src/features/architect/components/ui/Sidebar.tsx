@@ -546,46 +546,46 @@ export const Sidebar = ({
 
       {isRulesOpen && (
         <div
-          className="fixed inset-0 z-[1400] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[1400] bg-black/70"
           onClick={() => setIsRulesOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-white/15 bg-[#111115] p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+            className="fixed left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/10 bg-[#111113] p-5 shadow-2xl shadow-black/40"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <BookOpenText className="h-4 w-4 text-cyan-300" />
-                <h3 className="text-sm font-semibold text-white">Rules Relasi</h3>
+                <h3 className="text-base font-semibold text-white">Rules Relasi</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsRulesOpen(false)}
-                className="rounded-md p-1 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                className="rounded-full border border-white/10 bg-white/[0.03] p-1.5 text-white/60 transition-colors hover:bg-white/[0.06] hover:text-white"
                 aria-label="Tutup aturan relasi"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
               </button>
             </div>
 
-            <div className="space-y-2 text-[12px] leading-relaxed">
-              <div className="flex items-start gap-2 rounded-md bg-emerald-500/10 px-2.5 py-2 text-emerald-200">
-                <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+            <div className="mt-4 space-y-2 text-[12px] leading-relaxed text-white/70">
+              <div className="flex items-start gap-2">
+                <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />
                 <span>Tarik relasi dari FK ke PK.</span>
               </div>
 
-              <div className="flex items-start gap-2 rounded-md bg-emerald-500/10 px-2.5 py-2 text-emerald-200">
-                <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+              <div className="flex items-start gap-2">
+                <KeyRound className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />
                 <span>Satu PK boleh menerima banyak relasi masuk.</span>
               </div>
 
-              <div className="flex items-start gap-2 rounded-md bg-amber-500/10 px-2.5 py-2 text-amber-200">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />
                 <span>Tidak boleh FK -&gt; FK, PK -&gt; PK, self relation, dan relasi duplikat.</span>
               </div>
 
-              <div className="flex items-start gap-2 rounded-md bg-amber-500/10 px-2.5 py-2 text-amber-200">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />
                 <span>Satu kolom FK hanya boleh punya satu tujuan PK.</span>
               </div>
             </div>

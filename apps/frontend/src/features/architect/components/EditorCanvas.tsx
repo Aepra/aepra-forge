@@ -26,6 +26,7 @@ import "@xyflow/react/dist/style.css";
 import { TableNode } from "@/features/architect/components/nodes/TableNode";
 import type { RelationArrowType } from "../index";
 import OrthogonalEditableEdge from "./edges/OrthogonalEditableEdge";
+import { loadProject, saveProject, getCurrentProjectId } from "@/lib/project-storage";
 
 const initialNodes: Node[] = [];
 const MIN_TABLE_PASSAGE_GAP = 48;
@@ -34,6 +35,8 @@ const ARCHITECT_EVENT_REDO = "architect:redo";
 const ARCHITECT_EVENT_AUTO_LAYOUT = "architect:auto-layout";
 const ARCHITECT_EVENT_EXPORT = "architect:export-json";
 const ARCHITECT_EVENT_IMPORT = "architect:import-json";
+const ARCHITECT_EVENT_SAVE = "architect:save";
+const ARCHITECT_EVENT_GENERATE = "architect:generate";
 
 type OrthogonalEdgeData = {
   laneOffset?: number;
@@ -88,6 +91,21 @@ const getColumnIdFromHandle = (handleId?: string | null) => {
     .replace(/^right-/, "")
     .replace(/-source$/, "");
 };
+
+const getNodeColumns = (node: Node) =>
+  Array.isArray((node.data as { columns?: unknown[] })?.columns)
+    ? (((node.data as { columns?: unknown[] }).columns || []) as Array<{
+        id?: string;
+        name?: string;
+        type?: string;
+        nullable?: boolean;
+        unique?: boolean;
+        default?: string | null;
+        length?: number;
+        primary?: boolean;
+        primaryKey?: boolean;
+      }>)
+    : [];
 
 const getNodeVisualSize = (node: Node) => {
   const measuredWidth =
@@ -397,6 +415,15 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
     };
   }, []);
 
+  const persistWorkspace = useCallback((workspaceName?: string) => {
+    saveProject({
+      id: getCurrentProjectId() || undefined,
+      name: workspaceName,
+      nodes,
+      edges,
+    });
+  }, [nodes, edges]);
+
   const applySnapshot = useCallback(
     (snapshot: HistorySnapshot) => {
       suspendHistoryRef.current = true;
@@ -451,6 +478,20 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
     }
     futureRef.current = [];
   }, [nodes, edges, snapshotState]);
+
+  useEffect(() => {
+    const currentProjectId = getCurrentProjectId();
+    if (!currentProjectId) return;
+
+    const project = loadProject(currentProjectId);
+    if (!project) return;
+
+    applySnapshot(snapshotState(project.nodes as Node[], project.edges as Edge[]));
+    lastSnapshotSignatureRef.current = JSON.stringify({
+      nodes: project.nodes,
+      edges: project.edges,
+    });
+  }, [applySnapshot, snapshotState]);
 
   useEffect(() => {
     const runUndo = () => {
@@ -544,6 +585,106 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
       }
     };
 
+    const runSave = () => {
+      persistWorkspace();
+    };
+
+    const runGenerate = async (event: Event) => {
+      const customEvent = event as CustomEvent<{ framework?: string }>;
+      const framework = customEvent.detail?.framework || "fastapi";
+
+      const tableNameByNodeId = new Map<string, string>();
+      const tables = nodes.map((node, index) => {
+        const tableName = String((node.data as { label?: string })?.label || `table_${index + 1}`)
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, "_");
+
+        tableNameByNodeId.set(node.id, tableName);
+
+        const columns = getNodeColumns(node).map((col, colIndex) => ({
+          name: String(col.name || `column_${colIndex + 1}`),
+          type: String(col.type || "varchar"),
+          primary: col.primary === true || col.primaryKey === true,
+          nullable: col.nullable !== false,
+          unique: col.unique === true,
+          default: col.default || null,
+          length: typeof col.length === "number" ? col.length : null,
+        }));
+
+        return {
+          id: String(node.id),
+          name: tableName,
+          columns,
+        };
+      });
+
+      const relations = edges
+        .map((edge) => {
+          const sourceNode = nodes.find((node) => node.id === edge.source);
+          const targetNode = nodes.find((node) => node.id === edge.target);
+
+          if (!sourceNode || !targetNode) return null;
+
+          const sourceColumnId = getColumnIdFromHandle(edge.sourceHandle || null);
+          const targetColumnId = getColumnIdFromHandle(edge.targetHandle || null);
+
+          const sourceColumn = getNodeColumns(sourceNode).find((col) => String(col.id || "") === sourceColumnId);
+          const targetColumn = getNodeColumns(targetNode).find((col) => String(col.id || "") === targetColumnId);
+
+          return {
+            from_table: tableNameByNodeId.get(sourceNode.id) || sourceNode.id,
+            from_column: String(sourceColumn?.name || edge.sourceHandle || ""),
+            to_table: tableNameByNodeId.get(targetNode.id) || targetNode.id,
+            to_column: String(targetColumn?.name || edge.targetHandle || ""),
+            type: "one-to-many",
+            on_delete: "cascade",
+          };
+        })
+        .filter(Boolean);
+
+      const blueprint = {
+        tables,
+        relations,
+        meta: {
+          version: "1.0",
+          engine: "postgres",
+        },
+      };
+
+      persistWorkspace();
+
+      try {
+        const response = await fetch(
+          `/api/generator/build?framework=${encodeURIComponent(framework)}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(blueprint),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Generate failed with status ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `aepra-${framework}-project.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error("Failed to generate project", error);
+        window.alert("Generate project gagal. Periksa auth dan koneksi backend generator.");
+      }
+    };
+
     const onKeyDown = (event: KeyboardEvent) => {
       const meta = event.ctrlKey || event.metaKey;
       if (!meta) return;
@@ -564,6 +705,8 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
     window.addEventListener(ARCHITECT_EVENT_AUTO_LAYOUT, runAutoLayout as EventListener);
     window.addEventListener(ARCHITECT_EVENT_EXPORT, runExport as EventListener);
     window.addEventListener(ARCHITECT_EVENT_IMPORT, runImport as EventListener);
+    window.addEventListener(ARCHITECT_EVENT_SAVE, runSave as EventListener);
+    window.addEventListener(ARCHITECT_EVENT_GENERATE, runGenerate as EventListener);
     window.addEventListener("keydown", onKeyDown);
 
     return () => {
@@ -572,9 +715,11 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
       window.removeEventListener(ARCHITECT_EVENT_AUTO_LAYOUT, runAutoLayout as EventListener);
       window.removeEventListener(ARCHITECT_EVENT_EXPORT, runExport as EventListener);
       window.removeEventListener(ARCHITECT_EVENT_IMPORT, runImport as EventListener);
+      window.removeEventListener(ARCHITECT_EVENT_SAVE, runSave as EventListener);
+      window.removeEventListener(ARCHITECT_EVENT_GENERATE, runGenerate as EventListener);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [nodes, edges, setNodes, applySnapshot, snapshotState, relationArrowType]);
+  }, [nodes, edges, setNodes, applySnapshot, snapshotState, relationArrowType, persistWorkspace]);
 
   const onNodeDragStart = useCallback(() => {
     if (isNodeDraggingRef.current) return;
