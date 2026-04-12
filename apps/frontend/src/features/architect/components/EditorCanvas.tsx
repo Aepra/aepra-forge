@@ -5,6 +5,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  MiniMap,
   applyNodeChanges,
   useNodesState,
   useEdgesState,
@@ -28,6 +29,11 @@ import OrthogonalEditableEdge from "./edges/OrthogonalEditableEdge";
 
 const initialNodes: Node[] = [];
 const MIN_TABLE_PASSAGE_GAP = 48;
+const ARCHITECT_EVENT_UNDO = "architect:undo";
+const ARCHITECT_EVENT_REDO = "architect:redo";
+const ARCHITECT_EVENT_AUTO_LAYOUT = "architect:auto-layout";
+const ARCHITECT_EVENT_EXPORT = "architect:export-json";
+const ARCHITECT_EVENT_IMPORT = "architect:import-json";
 
 type OrthogonalEdgeData = {
   laneOffset?: number;
@@ -353,12 +359,21 @@ interface CanvasInnerProps {
   relationArrowType: RelationArrowType;
 }
 
+type HistorySnapshot = {
+  nodes: Node[];
+  edges: Edge[];
+};
+
 const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useNodesState<Node>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [isNodeDragging, setIsNodeDragging] = React.useState(false);
   const isNodeDraggingRef = useRef(false);
+  const historyRef = useRef<HistorySnapshot[]>([]);
+  const futureRef = useRef<HistorySnapshot[]>([]);
+  const suspendHistoryRef = useRef(false);
+  const lastSnapshotSignatureRef = useRef("");
   const { screenToFlowPosition } = useReactFlow();
   const [edgeContextMenu, setEdgeContextMenu] = React.useState<{
     edgeId: string;
@@ -375,6 +390,26 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
   const nodeTypes = useMemo(() => ({ tableErd: TableNode }), []);
   const edgeTypes = useMemo(() => ({ orthogonalEditable: OrthogonalEditableEdge }), []);
 
+  const snapshotState = useCallback((inputNodes: Node[], inputEdges: Edge[]): HistorySnapshot => {
+    return {
+      nodes: inputNodes.map((node) => ({ ...node, position: { ...node.position }, data: { ...(node.data || {}) } })),
+      edges: inputEdges.map((edge) => ({ ...edge, data: edge.data ? { ...edge.data } : edge.data, style: edge.style ? { ...edge.style } : edge.style })),
+    };
+  }, []);
+
+  const applySnapshot = useCallback(
+    (snapshot: HistorySnapshot) => {
+      suspendHistoryRef.current = true;
+      setNodes(snapshot.nodes);
+      setEdges(snapshot.edges);
+
+      requestAnimationFrame(() => {
+        suspendHistoryRef.current = false;
+      });
+    },
+    [setNodes, setEdges]
+  );
+
   const applyEdgeLayoutOptimization = useCallback((inputEdges: Edge[], currentNodes: Node[]) => {
     const optimized = optimizeExistingOrthogonalEdges(inputEdges, currentNodes);
     return normalizeOrthogonalEdgeOrder(optimized);
@@ -390,6 +425,156 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
 
     return () => window.clearTimeout(timer);
   }, [setEdges, nodes, edges.length, isNodeDragging, applyEdgeLayoutOptimization]);
+
+  useEffect(() => {
+    if (suspendHistoryRef.current) return;
+
+    const signature = JSON.stringify({
+      nodes: nodes.map((node) => ({ id: node.id, x: Math.round(node.position.x), y: Math.round(node.position.y), data: node.data })),
+      edges: edges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle,
+        targetHandle: edge.targetHandle,
+        style: edge.style,
+        data: edge.data,
+      })),
+    });
+
+    if (lastSnapshotSignatureRef.current === signature) return;
+    lastSnapshotSignatureRef.current = signature;
+
+    historyRef.current.push(snapshotState(nodes, edges));
+    if (historyRef.current.length > 80) {
+      historyRef.current.shift();
+    }
+    futureRef.current = [];
+  }, [nodes, edges, snapshotState]);
+
+  useEffect(() => {
+    const runUndo = () => {
+      if (historyRef.current.length < 2) return;
+
+      const current = historyRef.current.pop();
+      if (!current) return;
+      futureRef.current.push(current);
+      const previous = historyRef.current[historyRef.current.length - 1];
+      if (!previous) return;
+      applySnapshot(previous);
+    };
+
+    const runRedo = () => {
+      const next = futureRef.current.pop();
+      if (!next) return;
+      historyRef.current.push(next);
+      applySnapshot(next);
+    };
+
+    const runAutoLayout = () => {
+      setNodes((prevNodes) => {
+        const colCount = Math.max(1, Math.ceil(Math.sqrt(prevNodes.length || 1)));
+        const spacingX = 340;
+        const spacingY = 240;
+
+        return prevNodes.map((node, index) => {
+          const col = index % colCount;
+          const row = Math.floor(index / colCount);
+          return {
+            ...node,
+            position: {
+              x: 120 + col * spacingX,
+              y: 120 + row * spacingY,
+            },
+          };
+        });
+      });
+    };
+
+    const runExport = () => {
+      const payload = {
+        version: "1.1",
+        nodes,
+        edges,
+      };
+
+      const content = JSON.stringify(payload, null, 2);
+      const element = document.createElement("a");
+      element.setAttribute("href", "data:application/json;charset=utf-8," + encodeURIComponent(content));
+      element.setAttribute("download", "architect-workspace.json");
+      element.style.display = "none";
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    };
+
+    const runImport = (event: Event) => {
+      const customEvent = event as CustomEvent<{ nodes?: Node[]; edges?: Edge[]; tables?: any[]; relations?: any[] }>;
+      const detail = customEvent.detail || {};
+
+      if (Array.isArray(detail.nodes) && Array.isArray(detail.edges)) {
+        applySnapshot(snapshotState(detail.nodes, detail.edges));
+        return;
+      }
+
+      if (Array.isArray(detail.tables)) {
+        const importedNodes: Node[] = detail.tables.map((table, index) => ({
+          id: String(table.id || `table_${index + 1}`),
+          type: "tableErd",
+          position: { x: 120 + (index % 3) * 340, y: 120 + Math.floor(index / 3) * 240 },
+          data: {
+            label: table.name || `TABLE_${index + 1}`,
+            columns: Array.isArray(table.columns) ? table.columns : [],
+          },
+        }));
+
+        const importedEdges: Edge[] = Array.isArray(detail.relations)
+          ? detail.relations.map((relation, index) => ({
+              id: String(relation.id || `edge_${index + 1}`),
+              source: String(relation.source || ""),
+              target: String(relation.target || ""),
+              sourceHandle: relation.sourceColumn || null,
+              targetHandle: relation.targetColumn || null,
+              type: relationArrowType === "orthogonal" ? "orthogonalEditable" : "default",
+              style: { stroke: "#ffffff", strokeWidth: 1.6 },
+            }))
+          : [];
+
+        applySnapshot(snapshotState(importedNodes, importedEdges));
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const meta = event.ctrlKey || event.metaKey;
+      if (!meta) return;
+
+      if (event.key.toLowerCase() === "z" && !event.shiftKey) {
+        event.preventDefault();
+        runUndo();
+      }
+
+      if (event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey)) {
+        event.preventDefault();
+        runRedo();
+      }
+    };
+
+    window.addEventListener(ARCHITECT_EVENT_UNDO, runUndo as EventListener);
+    window.addEventListener(ARCHITECT_EVENT_REDO, runRedo as EventListener);
+    window.addEventListener(ARCHITECT_EVENT_AUTO_LAYOUT, runAutoLayout as EventListener);
+    window.addEventListener(ARCHITECT_EVENT_EXPORT, runExport as EventListener);
+    window.addEventListener(ARCHITECT_EVENT_IMPORT, runImport as EventListener);
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener(ARCHITECT_EVENT_UNDO, runUndo as EventListener);
+      window.removeEventListener(ARCHITECT_EVENT_REDO, runRedo as EventListener);
+      window.removeEventListener(ARCHITECT_EVENT_AUTO_LAYOUT, runAutoLayout as EventListener);
+      window.removeEventListener(ARCHITECT_EVENT_EXPORT, runExport as EventListener);
+      window.removeEventListener(ARCHITECT_EVENT_IMPORT, runImport as EventListener);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [nodes, edges, setNodes, applySnapshot, snapshotState, relationArrowType]);
 
   const onNodeDragStart = useCallback(() => {
     if (isNodeDraggingRef.current) return;
@@ -621,6 +806,14 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
         snapGrid={[20, 20]}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} color="#333" />
+        <MiniMap
+          pannable
+          zoomable
+          nodeStrokeColor="#22d3ee"
+          nodeColor="#0f172a"
+          maskColor="rgba(0,0,0,0.45)"
+          style={{ background: "#0b0c0e", border: "1px solid rgba(255,255,255,0.1)" }}
+        />
         <Controls />
       </ReactFlow>
 

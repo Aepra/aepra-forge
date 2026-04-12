@@ -8,17 +8,23 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Gauge,
+  MoveRight,
+  Layers,
   Palette,
+  Search,
   KeyRound,
   Link2,
   X,
 } from "lucide-react";
-import { Edge, useOnSelectionChange, useReactFlow } from "@xyflow/react";
-import type { RelationArrowType } from "../../index";
+import { Edge, useEdges, useNodes, useOnSelectionChange, useReactFlow } from "@xyflow/react";
+import type { ArchitectTheme, RelationArrowType } from "../../index";
 
 interface SidebarProps {
   relationArrowType: RelationArrowType;
   onRelationArrowTypeChange: (value: RelationArrowType) => void;
+  theme: ArchitectTheme;
+  onThemeChange: (value: ArchitectTheme) => void;
   isPreviewVisible: boolean;
   onTogglePreview: () => void;
 }
@@ -26,13 +32,18 @@ interface SidebarProps {
 export const Sidebar = ({
   relationArrowType,
   onRelationArrowTypeChange,
+  theme,
+  onThemeChange,
   isPreviewVisible,
   onTogglePreview,
 }: SidebarProps) => {
-  const { setEdges } = useReactFlow();
+  const { setEdges, setCenter, fitView } = useReactFlow();
+  const nodes = useNodes();
+  const edges = useEdges();
   const [isRulesOpen, setIsRulesOpen] = React.useState(false);
   const [selectedEdgeId, setSelectedEdgeId] = React.useState<string | null>(null);
   const [selectedEdgeColor, setSelectedEdgeColor] = React.useState("#ffffff");
+  const [searchTerm, setSearchTerm] = React.useState("");
   const colorInputRef = React.useRef<HTMLInputElement>(null);
 
   const DEFAULT_EDGE_COLORS = React.useMemo(
@@ -40,6 +51,91 @@ export const Sidebar = ({
     []
   );
   const [edgeColorOptions, setEdgeColorOptions] = React.useState<string[]>(DEFAULT_EDGE_COLORS);
+
+  const filteredNodes = React.useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+    if (!keyword) return [] as typeof nodes;
+    return nodes.filter((node) => {
+      const tableName = String(node.data?.label || "").toLowerCase();
+      const columns = Array.isArray(node.data?.columns) ? (node.data?.columns as Array<{ name?: string }>) : [];
+      const hasColumnMatch = columns.some((column) => String(column?.name || "").toLowerCase().includes(keyword));
+      return tableName.includes(keyword) || hasColumnMatch;
+    });
+  }, [nodes, searchTerm]);
+
+  const selectedEdge = React.useMemo(
+    () => edges.find((edge) => edge.id === selectedEdgeId) || null,
+    [edges, selectedEdgeId]
+  );
+
+  const selectedSourceTable = React.useMemo(
+    () => nodes.find((node) => node.id === selectedEdge?.source) || null,
+    [nodes, selectedEdge]
+  );
+
+  const selectedTargetTable = React.useMemo(
+    () => nodes.find((node) => node.id === selectedEdge?.target) || null,
+    [nodes, selectedEdge]
+  );
+
+  const selectedSourceColumnName = React.useMemo(() => {
+    if (!selectedSourceTable || !selectedEdge?.sourceHandle) return selectedEdge?.sourceHandle || "-";
+    const columns = Array.isArray(selectedSourceTable.data?.columns)
+      ? (selectedSourceTable.data?.columns as Array<{ id?: string; name?: string }>)
+      : [];
+    const handleId = String(selectedEdge.sourceHandle);
+    const matchedColumn = columns.find((column) => {
+      const columnId = String(column?.id || "");
+      return handleId === `left-${columnId}` || handleId === `left-${columnId}-source` || handleId === `right-${columnId}` || handleId === `right-${columnId}-source`;
+    });
+    return matchedColumn?.name || selectedEdge.sourceHandle || "-";
+  }, [selectedSourceTable, selectedEdge]);
+
+  const selectedTargetColumnName = React.useMemo(() => {
+    if (!selectedTargetTable || !selectedEdge?.targetHandle) return selectedEdge?.targetHandle || "-";
+    const columns = Array.isArray(selectedTargetTable.data?.columns)
+      ? (selectedTargetTable.data?.columns as Array<{ id?: string; name?: string }>)
+      : [];
+    const handleId = String(selectedEdge.targetHandle);
+    const matchedColumn = columns.find((column) => {
+      const columnId = String(column?.id || "");
+      return handleId === `left-${columnId}` || handleId === `left-${columnId}-source` || handleId === `right-${columnId}` || handleId === `right-${columnId}-source`;
+    });
+    return matchedColumn?.name || selectedEdge.targetHandle || "-";
+  }, [selectedTargetTable, selectedEdge]);
+
+  const validationItems = React.useMemo(() => {
+    const issues: string[] = [];
+
+    nodes.forEach((node) => {
+      const columns = Array.isArray(node.data?.columns) ? (node.data?.columns as Array<{ name?: string; type?: string }>) : [];
+      if (columns.length === 0) {
+        issues.push(`Table ${String(node.data?.label || node.id)} has no columns.`);
+      }
+
+      const hasPrimaryKey = columns.some((column) => {
+        const name = String(column?.name || "").toLowerCase();
+        const type = String(column?.type || "").toLowerCase();
+        return name === "id" || type === "uuid";
+      });
+
+      if (!hasPrimaryKey) {
+        issues.push(`Table ${String(node.data?.label || node.id)} has no PK indicator.`);
+      }
+    });
+
+    const duplicateRelationKey = new Set<string>();
+    edges.forEach((edge) => {
+      const key = `${edge.source}|${edge.sourceHandle}|${edge.target}|${edge.targetHandle}`;
+      if (duplicateRelationKey.has(key)) {
+        issues.push(`Duplicate relation detected: ${edge.id}.`);
+      } else {
+        duplicateRelationKey.add(key);
+      }
+    });
+
+    return issues.slice(0, 6);
+  }, [nodes, edges]);
 
   const resolveEdgeStroke = React.useCallback((edge: Edge) => {
     const styleStroke = typeof edge.style?.stroke === "string" ? edge.style.stroke : null;
@@ -133,6 +229,15 @@ export const Sidebar = ({
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData("application/reactflow", nodeType);
     event.dataTransfer.effectAllowed = "move";
+  };
+
+  const focusNode = (nodeId: string) => {
+    const targetNode = nodes.find((node) => node.id === nodeId);
+    if (!targetNode) return;
+
+    const x = targetNode.position.x + ((targetNode.width as number) || 220) / 2;
+    const y = targetNode.position.y + ((targetNode.height as number) || 180) / 2;
+    setCenter(x, y, { zoom: 1.1, duration: 280 });
   };
 
   return (
@@ -246,6 +351,111 @@ export const Sidebar = ({
               </div>
             )}
           </div>
+        </div>
+
+        <div className="mt-2 rounded-lg bg-[#1a1a1c] p-2">
+          <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/60">
+            <Search className="h-3 w-3" /> Search and Jump
+          </label>
+          <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Find table or column..."
+            className="w-full rounded-md border border-white/10 bg-[#0f0f11] px-2 py-1 text-[11px] text-white/80 outline-none placeholder:text-white/30 focus:border-cyan-300/40"
+          />
+          {searchTerm.trim() && (
+            <div className="mt-1.5 max-h-20 space-y-1 overflow-auto pr-1">
+              {filteredNodes.length > 0 ? (
+                filteredNodes.slice(0, 6).map((node) => (
+                  <button
+                    key={node.id}
+                    type="button"
+                    onClick={() => focusNode(node.id)}
+                    className="w-full rounded px-1.5 py-1 text-left text-[10px] text-white/70 hover:bg-white/5"
+                  >
+                    {String(node.data?.label || node.id)}
+                  </button>
+                ))
+              ) : (
+                <div className="text-[10px] text-white/35">No result.</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-2 rounded-lg bg-[#1a1a1c] p-2">
+          <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/60">
+            <Layers className="h-3 w-3" /> Relation Inspector
+          </label>
+          {selectedEdge ? (
+            <div className="space-y-2 text-[10px] text-white/70">
+              <div className="text-white/45">Garis ini menghubungkan dua tabel.</div>
+
+              <div className="rounded-md bg-white/5 px-2 py-1.5 leading-relaxed text-white/80">
+                <span className="text-cyan-200">{String(selectedSourceTable?.data?.label || selectedEdge.source)}</span>
+                <span> </span>
+                <span className="text-amber-200">{String(selectedSourceColumnName)}</span>
+                <span> adalah foreign key dari </span>
+                <span className="text-violet-200">{String(selectedTargetTable?.data?.label || selectedEdge.target)}</span>
+                <span> </span>
+                <span className="text-emerald-200">{String(selectedTargetColumnName)}</span>
+                <span>.</span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-sky-200">
+                <Link2 className="h-3 w-3 text-sky-300" />
+                <span>Klik garis untuk ubah warna atau hapus.</span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-[10px] text-white/35">Pilih garis relasi untuk lihat detailnya.</div>
+          )}
+        </div>
+
+        <div className="mt-2 rounded-lg bg-[#1a1a1c] p-2">
+          <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/60">
+            <AlertTriangle className="h-3 w-3" /> Validation
+          </label>
+          {validationItems.length > 0 ? (
+            <div className="max-h-20 space-y-1 overflow-auto pr-1">
+              {validationItems.map((item) => (
+                <div key={item} className="rounded bg-amber-500/10 px-1.5 py-1 text-[10px] text-amber-200">
+                  {item}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-[10px] text-emerald-300/80">No validation issues.</div>
+          )}
+        </div>
+
+        <div className="mt-2 rounded-lg bg-[#1a1a1c] p-2">
+          <label className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/60">
+            <Gauge className="h-3 w-3" /> Theme Presets
+          </label>
+          <div className="flex gap-1">
+            {(["graphite", "ocean", "paper"] as ArchitectTheme[]).map((themeItem) => (
+              <button
+                key={themeItem}
+                type="button"
+                onClick={() => onThemeChange(themeItem)}
+                className={`rounded px-2 py-1 text-[10px] uppercase tracking-wide ${
+                  theme === themeItem
+                    ? "bg-cyan-500/20 text-cyan-200"
+                    : "bg-[#0f0f11] text-white/60 hover:bg-white/5"
+                }`}
+              >
+                {themeItem}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => fitView({ padding: 0.2, duration: 300 })}
+            className="mt-1.5 w-full rounded bg-[#0f0f11] px-2 py-1 text-[10px] text-white/70 hover:bg-white/5"
+          >
+            Focus All Nodes
+          </button>
         </div>
 
         <div className="mt-3 flex items-center justify-center gap-2">
