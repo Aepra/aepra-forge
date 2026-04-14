@@ -4,7 +4,7 @@ import { Code2, Copy, Check, Download } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useEdges, useNodes } from "@xyflow/react";
 
-export const Preview = () => {
+export const ArchitectPreview = () => {
   const [copied, setCopied] = useState(false);
   const [format, setFormat] = useState<"json" | "sql">("json");
   const [currentTimestamp, setCurrentTimestamp] = useState<string>("");

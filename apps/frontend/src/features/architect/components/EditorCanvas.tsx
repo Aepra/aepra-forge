@@ -23,7 +23,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { TableNode } from "@/features/architect/components/nodes/TableNode";
+import { ArchitectTableNode } from "@/features/architect/components/schema";
 import type { RelationArrowType } from "../index";
 import OrthogonalEditableEdge from "./edges/OrthogonalEditableEdge";
 import { loadProject, saveProject, getCurrentProjectId } from "@/lib/project-storage";
@@ -405,7 +405,7 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
 
   const edgeType = relationArrowType === "orthogonal" ? "straight" : "default";
 
-  const nodeTypes = useMemo(() => ({ tableErd: TableNode }), []);
+  const nodeTypes = useMemo(() => ({ tableErd: ArchitectTableNode }), []);
   const edgeTypes = useMemo(() => ({ orthogonalEditable: OrthogonalEditableEdge }), []);
 
   const snapshotState = useCallback((inputNodes: Node[], inputEdges: Edge[]): HistorySnapshot => {

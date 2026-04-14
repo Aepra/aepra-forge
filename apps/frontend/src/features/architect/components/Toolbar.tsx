@@ -13,7 +13,7 @@ const ARCHITECT_EVENT_IMPORT = "architect:import-json";
 const ARCHITECT_EVENT_SAVE = "architect:save";
 const ARCHITECT_EVENT_GENERATE = "architect:generate";
 
-export const Toolbar = () => {
+export const ArchitectToolbar = () => {
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [framework, setFramework] = React.useState("fastapi");
   const [isSaveConfirmOpen, setIsSaveConfirmOpen] = React.useState(false);

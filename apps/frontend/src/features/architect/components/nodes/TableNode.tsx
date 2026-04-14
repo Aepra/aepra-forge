@@ -12,7 +12,7 @@ interface TableNodeData extends Record<string, unknown> {
   columns: Array<{ id: string; name: string; type: string }>;
 }
 
-export const TableNode = memo(({ id, data }: NodeProps<Node<TableNodeData>>) => {
+export const ArchitectTableNode = memo(({ id, data }: NodeProps<Node<TableNodeData>>) => {
   const { setNodes } = useReactFlow();
   const [isEditing, setIsEditing] = React.useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -307,4 +307,4 @@ export const TableNode = memo(({ id, data }: NodeProps<Node<TableNodeData>>) => 
   );
 });
 
-TableNode.displayName = "TableNode";
+ArchitectTableNode.displayName = "ArchitectTableNode";

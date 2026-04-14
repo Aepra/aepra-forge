@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Database, Terminal, Box } from "lucide-react";
+import { ArrowRight, Database, Server, Box } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
@@ -26,12 +26,14 @@ export default function Home() {
 
         <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
           <Button size="lg" className="h-11 w-full gap-2 px-7 text-base sm:w-auto" asChild>
-            <Link href="/hub">
+            <Link href="/projects">
               Start Building <ArrowRight className="w-5 h-5" />
             </Link>
           </Button>
-          <Button size="lg" variant="outline" className="h-11 w-full gap-2 border-white/20 bg-white/[0.02] px-7 text-base text-white hover:bg-white/[0.06] sm:w-auto">
-            <Terminal className="w-5 h-5" /> View Docs
+          <Button size="lg" variant="outline" className="h-11 w-full gap-2 border-white/20 bg-white/[0.02] px-7 text-base text-white hover:bg-white/[0.06] sm:w-auto" asChild>
+            <Link href="/deploy">
+              <Server className="w-5 h-5" /> Deploy
+            </Link>
           </Button>
         </div>
 
@@ -45,7 +47,7 @@ export default function Home() {
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-colors hover:border-cyan-300/35">
-            <Terminal className="mb-3 h-8 w-8 text-cyan-300" />
+            <Server className="mb-3 h-8 w-8 text-cyan-300" />
             <h3 className="mb-2 text-lg font-semibold text-white">Framework Generator</h3>
             <p className="text-sm leading-relaxed text-white/60">
               Generate clean backend project structures from schema JSON with professional conventions.

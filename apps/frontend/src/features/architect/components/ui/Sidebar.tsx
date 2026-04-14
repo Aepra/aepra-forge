@@ -31,7 +31,7 @@ interface SidebarProps {
   onTogglePreview: () => void;
 }
 
-export const Sidebar = ({
+export const ArchitectSidebar = ({
   relationArrowType,
   onRelationArrowTypeChange,
   theme,

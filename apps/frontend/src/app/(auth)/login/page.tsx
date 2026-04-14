@@ -16,7 +16,7 @@ const SocialButton = ({
   return (
     <button
       type="button"
-      onClick={() => signIn(provider, { callbackUrl: "/hub" })}
+      onClick={() => signIn(provider, { callbackUrl: "/projects" })}
       className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/[0.03] text-sm font-medium text-white/85 transition-colors hover:bg-white/[0.08]"
     >
       {icon}
@@ -32,7 +32,7 @@ export default function LoginPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">Aepra Forge</p>
         <h1 className="mt-3 text-2xl font-semibold">Sign In</h1>
         <p className="mt-2 text-sm leading-relaxed text-white/60">
-          Masuk menggunakan Google atau GitHub untuk mengakses Project Hub dan Architect Workspace.
+          Masuk menggunakan Google atau GitHub untuk mengakses Project Library dan Architect Workspace.
         </p>
 
         <div className="mt-6 space-y-3">

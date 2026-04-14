@@ -7,7 +7,7 @@ export const NavbarWrapper = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
   
   // Daftar halaman Workspace yang ingin FULL SCREEN (Tanpa Navbar & Tanpa Padding)
-  const isWorkspace = pathname.startsWith("/architect") || pathname.startsWith("/hub")|| pathname.startsWith("/danlainlain");
+  const isWorkspace = pathname.startsWith("/architect") || pathname.startsWith("/projects") || pathname.startsWith("/deploy");
 
   return (
     <>
