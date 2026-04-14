@@ -2,8 +2,18 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Database, FolderPlus, LayoutDashboard, Plus, Clock3, Trash2 } from "lucide-react";
+import { 
+  ArrowLeft, 
+  ChevronRight, 
+  Database, 
+  Plus, 
+  Clock3, 
+  Trash2, 
+  Search,
+  LayoutDashboard
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+
 import {
   createBlankProject,
   deleteProject,
@@ -17,96 +27,9 @@ const formatDate = (value: string) => {
     return new Intl.DateTimeFormat("id-ID", {
       day: "2-digit",
       month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+      year: "2-digit",
     }).format(new Date(value));
-  } catch {
-    return value;
-  }
-};
-
-const EmptyState = ({ onCreateBlank }: { onCreateBlank: () => void }) => {
-  return (
-    <button
-      type="button"
-      onClick={onCreateBlank}
-      className="group flex min-h-[240px] flex-col justify-center rounded-[28px] border border-dashed border-white/15 bg-white/[0.03] p-6 text-left transition-colors hover:border-cyan-300/40 hover:bg-white/[0.05]"
-    >
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
-        <FolderPlus className="h-6 w-6" />
-      </div>
-      <h3 className="text-xl font-semibold text-white">Blank Project</h3>
-      <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/55">
-        Mulai dari kanvas kosong. Cocok kalau kamu mau bikin schema dari nol sebelum masuk ke architect.
-      </p>
-      <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-cyan-200">
-        Start from blank <ArrowRight className="h-4 w-4" />
-      </div>
-    </button>
-  );
-};
-
-const ProjectCard = ({
-  project,
-  onOpen,
-  onDelete,
-}: {
-  project: ProjectSummary;
-  onOpen: (id: string) => void;
-  onDelete: (id: string) => void;
-}) => {
-  return (
-    <div className="group rounded-[24px] border border-white/10 bg-white/[0.03] p-5 transition-colors hover:border-cyan-300/35">
-      <div className="flex items-start justify-between gap-3">
-        <button type="button" onClick={() => onOpen(project.id)} className="text-left">
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[#111113] text-cyan-200">
-            <Database className="h-5 w-5" />
-          </div>
-          <h3 className="text-lg font-semibold text-white">{project.name}</h3>
-          <p className="mt-1 text-xs text-white/45">Updated {formatDate(project.updatedAt)}</p>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onDelete(project.id)}
-          className="rounded-full border border-white/10 bg-white/[0.03] p-2 text-white/45 transition-colors hover:border-red-400/30 hover:text-red-300"
-          aria-label={`Delete ${project.name}`}
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="mt-5 flex flex-wrap gap-2">
-        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] uppercase tracking-wide text-white/65">
-          {project.tablesCount} tables
-        </span>
-        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] uppercase tracking-wide text-white/65">
-          {project.relationsCount} relations
-        </span>
-        {project.isBlank && (
-          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] uppercase tracking-wide text-cyan-100">
-            blank
-          </span>
-        )}
-      </div>
-
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs text-white/45">
-          <Clock3 className="h-3.5 w-3.5" />
-          {formatDate(project.updatedAt)}
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          className="h-9 rounded-full bg-cyan-300 px-4 text-black hover:bg-cyan-200"
-          onClick={() => onOpen(project.id)}
-        >
-          Open
-        </Button>
-      </div>
-    </div>
-  );
+  } catch { return value; }
 };
 
 export const ProjectHub = () => {
@@ -119,140 +42,155 @@ export const ProjectHub = () => {
 
   React.useEffect(() => {
     refreshProjects();
-
     const onStorage = () => refreshProjects();
     window.addEventListener("storage", onStorage);
-
     return () => window.removeEventListener("storage", onStorage);
   }, [refreshProjects]);
 
-  const openProject = (projectId: string) => {
-    setCurrentProjectId(projectId);
-    router.push("/architect");
-  };
-
-  const createBlank = () => {
-    const project = createBlankProject();
-    if (!project) return;
-    router.push("/architect");
-  };
-
-  const handleDelete = (projectId: string) => {
-    deleteProject(projectId);
-    refreshProjects();
-  };
-
-  const onGoBack = () => {
-    if (window.history.length > 1) {
-      router.back();
-      return;
-    }
-
-    router.push("/");
-  };
-
-  const lastUpdated = projects[0]?.updatedAt;
+  const openProject = (id: string) => { setCurrentProjectId(id); router.push("/architect"); };
+  const createBlank = () => { const p = createBlankProject(); if (p) router.push("/architect"); };
+  const handleDelete = (id: string) => { deleteProject(id); refreshProjects(); };
+  const onGoBack = () => { window.history.length > 1 ? router.back() : router.push("/home"); };
 
   return (
-    <div className="min-h-screen bg-[#0b0d10] text-white">
-      <div className="mx-auto flex min-h-screen max-w-7xl gap-6 px-4 py-6 md:px-6">
-        <aside className="hidden w-80 shrink-0 flex-col rounded-[28px] border border-white/10 bg-white/[0.03] p-5 lg:flex">
-          <div className="mb-6 flex items-center gap-3 rounded-[22px] border border-white/10 bg-[#111113] px-4 py-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
-              <LayoutDashboard className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-white/45">Project Library</p>
-              <h2 className="text-lg font-semibold text-white">Aepra-Forge</h2>
-            </div>
-          </div>
-
-          <Button
-            type="button"
-            className="h-11 rounded-full bg-cyan-300 text-black hover:bg-cyan-200"
-            onClick={createBlank}
+    <div className="min-h-screen bg-[#0b0d10] text-zinc-400">
+      
+      {/* 1. TOP NAV (Stay Compact) */}
+      <nav className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-white/5 bg-[#0b0d10]/95 px-4 backdrop-blur-md">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={onGoBack}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-white"
           >
-            <Plus className="mr-2 h-4 w-4" /> New Blank Project
-          </Button>
-
-          <div className="mt-6 rounded-[22px] border border-white/10 bg-[#111113] p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-white/40">Summary</p>
-            <div className="mt-4 space-y-3 text-sm text-white/70">
-              <div className="flex items-center justify-between">
-                <span>Total projects</span>
-                <span className="font-semibold text-white">{projects.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Last update</span>
-                <span className="font-semibold text-white">{lastUpdated ? formatDate(lastUpdated) : "-"}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Status</span>
-                <span className="font-semibold text-cyan-200">Ready</span>
-              </div>
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          
+          <div className="h-4 w-[1px] bg-white/10" />
+          
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
+              <LayoutDashboard className="h-4 w-4" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-cyan-300/70 leading-none mb-0.5">AEPRA-FORGE</span>
+              <span className="text-xs font-bold text-white leading-none">Library</span>
             </div>
           </div>
+        </div>
 
-          <div className="mt-6 rounded-[22px] border border-white/10 bg-[#111113] p-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-white/40">Quick Tips</p>
-            <p className="mt-3 text-sm leading-relaxed text-white/60">
-              Save projects from architect to build your recent history. Empty state tetap tampil sebagai <span className="text-white">Blank</span>.
-            </p>
+        <div className="flex items-center gap-3">
+          <div className="relative hidden md:block">
+             <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-zinc-600" />
+             <input 
+               placeholder="Search..." 
+               className="h-8 w-40 rounded-lg border border-white/5 bg-white/[0.02] pl-8 text-[10px] outline-none focus:border-cyan-500/30 transition-all"
+             />
+          </div>
+          <Button 
+            size="sm" 
+            onClick={createBlank}
+            className="h-8 rounded-lg bg-cyan-300 px-3 text-[10px] font-bold text-black hover:bg-cyan-200"
+          >
+            <Plus className="mr-1 h-3 w-3" /> NEW
+          </Button>
+        </div>
+      </nav>
+
+      <div className="mx-auto flex max-w-[1800px] px-6">
+        
+        {/* 2. SIDEBAR (UKURAN TETAP) */}
+        <aside className="sticky top-14 hidden h-[calc(100vh-56px)] w-72 flex-col py-8 pr-8 lg:flex border-r border-white/5">
+          <div className="flex-1 space-y-6">
+            <div>
+              <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-600">Overview</p>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+                <div className="space-y-4 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500">Total Files</span>
+                    <span className="font-bold text-white text-lg">{projects.length}</span>
+                  </div>
+                  <div className="h-[1px] bg-white/5" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500">Status</span>
+                    <span className="font-bold text-cyan-400 text-[10px] uppercase tracking-widest">Active</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/5 bg-cyan-400/[0.02] p-5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Quick Tips</p>
+              <p className="text-[11px] leading-relaxed text-zinc-500">
+                Blueprint yang kamu simpan akan muncul di library secara otomatis.
+              </p>
+            </div>
           </div>
         </aside>
 
-        <main className="flex-1">
-          <div className="rounded-[32px] border border-white/10 bg-white/[0.02] p-6 md:p-8">
-            <div className="mb-4 flex items-center justify-start">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 rounded-full border-white/15 bg-white/[0.03] px-4 text-white hover:bg-white/[0.06]"
-                onClick={onGoBack}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back
-              </Button>
-            </div>
+        {/* 3. MAIN AREA (ITEM PROYEK SUPER COMPACT) */}
+        <main className="flex-1 py-8 pl-8">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-white">Blueprints</h1>
+          </div>
 
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Workspace</p>
-                <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">
-                  Recent projects before entering canvas.
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/60 md:text-base">
-                  Pilih project yang sudah pernah dibuat, atau mulai dari kanvas kosong. Alur ini dibuat mirip Word: daftar dokumen dulu, lalu buka workspace.
-                </p>
+          {/* GRID DIPERBANYAK KOLOMNYA AGAR CARD KELIHATAN KECIL */}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+            
+            {/* Action Card: New Project (MINI) */}
+            <button
+              onClick={createBlank}
+              className="group flex h-[140px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-transparent transition-all hover:border-cyan-300/40 hover:bg-cyan-300/[0.02]"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-300 transition-transform group-hover:scale-105">
+                <Plus className="h-5 w-5" />
               </div>
+              <span className="mt-3 text-[9px] font-bold tracking-widest text-zinc-500 uppercase">Create</span>
+            </button>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 rounded-full border-white/15 bg-white/[0.03] px-5 text-white hover:bg-white/[0.06]"
-                onClick={createBlank}
+            {projects.map((project) => (
+              <div 
+                key={project.id}
+                className="group relative flex h-[140px] flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.03] p-3.5 transition-all hover:border-cyan-300/30 hover:bg-white/[0.05]"
               >
-                Create Blank Project
-              </Button>
-            </div>
-
-            <div className="mt-8 grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <EmptyState onCreateBlank={createBlank} />
-
-              {projects.length > 0 ? (
-                projects.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    onOpen={openProject}
-                    onDelete={handleDelete}
-                  />
-                ))
-              ) : (
-                <div className="flex min-h-[240px] items-center justify-center rounded-[28px] border border-white/10 bg-white/[0.03] p-6 text-center text-sm text-white/45">
-                  Belum ada project tersimpan. Klik Blank Project untuk mulai.
+                <div className="flex items-start justify-between">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-[#111113] text-cyan-200">
+                    <Database className="h-4 w-4" />
+                  </div>
+                  <button 
+                    onClick={() => handleDelete(project.id)}
+                    className="p-1.5 rounded-lg text-zinc-700 opacity-0 transition-all group-hover:opacity-100 hover:text-red-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-              )}
-            </div>
+
+                <div className="mt-2">
+                  <h3 className="text-xs font-bold text-white truncate group-hover:text-cyan-300 transition-colors">
+                    {project.name}
+                  </h3>
+                  <div className="mt-1 flex gap-2">
+                    <span className="text-[9px] font-bold text-zinc-600 uppercase">
+                      {project.tablesCount}T
+                    </span>
+                    <span className="text-[9px] font-bold text-zinc-600 uppercase">
+                      {project.relationsCount}R
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-2">
+                  <span className="text-[8px] text-zinc-600 font-medium">
+                    {formatDate(project.updatedAt)}
+                  </span>
+                  <button 
+                    onClick={() => openProject(project.id)}
+                    className="text-[9px] font-black text-cyan-400 hover:text-white uppercase transition-colors"
+                  >
+                    Open
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </main>
       </div>
