@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import type { Prisma } from "@prisma/client";
 
-import { authOptions } from "@/auth";
+import { authOptions } from "@/config/auth";
 import { prisma } from "@/lib/prisma";
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
