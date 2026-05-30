@@ -13,7 +13,11 @@ const ARCHITECT_EVENT_IMPORT = "architect:import-json";
 const ARCHITECT_EVENT_SAVE = "architect:save";
 const ARCHITECT_EVENT_GENERATE = "architect:generate";
 
-export const ArchitectToolbar = () => {
+interface ArchitectToolbarProps {
+  projectName: string;
+}
+
+export const ArchitectToolbar = ({ projectName }: ArchitectToolbarProps) => {
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [framework, setFramework] = React.useState("fastapi");
   const [isSaveConfirmOpen, setIsSaveConfirmOpen] = React.useState(false);
@@ -107,6 +111,9 @@ export const ArchitectToolbar = () => {
               <p className="mb-4 text-[12px] leading-relaxed text-white/70">
                 Yakin mau save project ini ke daftar project?
               </p>
+              <p className="mb-4 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-white/70">
+                Nama project: <span className="font-semibold text-cyan-200">{projectName.trim() || "Untitled Project"}</span>
+              </p>
 
               <div className="flex justify-end gap-2">
                 <button
@@ -120,7 +127,7 @@ export const ArchitectToolbar = () => {
                   type="button"
                   onClick={() => {
                     setIsSaveConfirmOpen(false);
-                    emitEvent(ARCHITECT_EVENT_SAVE);
+                    emitEvent(ARCHITECT_EVENT_SAVE, { projectName: projectName.trim() || "Untitled Project" });
                   }}
                   className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-cyan-200"
                 >

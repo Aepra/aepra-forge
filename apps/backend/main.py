@@ -10,8 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.backand.generator import build_fastapi_project_zip
+from app.backand import router as backand_router
 from app.schemas.blueprint import ProjectBlueprint
-from app.services.generator.fastapi_project_builder import build_fastapi_project_zip
 
 app = FastAPI(
     title="Aepra-Forge API",
@@ -77,6 +78,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=TRUSTED_HOSTS)
+
+# Mount the unified backand router (users, identities, products, admin)
+app.include_router(backand_router, prefix="/api/v1")
 
 
 def _client_ip(request: Request) -> str:

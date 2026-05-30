@@ -29,6 +29,8 @@ interface SidebarProps {
   onThemeChange: (value: ArchitectTheme) => void;
   isPreviewVisible: boolean;
   onTogglePreview: () => void;
+  projectName: string;
+  onProjectNameChange: (value: string) => void;
 }
 
 export const ArchitectSidebar = ({
@@ -38,6 +40,8 @@ export const ArchitectSidebar = ({
   onThemeChange,
   isPreviewVisible,
   onTogglePreview,
+  projectName,
+  onProjectNameChange,
 }: SidebarProps) => {
   const router = useRouter();
   const { setEdges, setCenter, fitView } = useReactFlow();
@@ -255,6 +259,7 @@ export const ArchitectSidebar = ({
   const sectionClassName = "mt-2 rounded-xl border border-white/10 bg-[#17171a] p-2.5";
   const sectionLabelClassName =
     "mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/65";
+  const normalizedProjectName = projectName.trim() || "Untitled Project";
 
   return (
     <aside className="w-64 h-full shrink-0 border-r border-white/5 bg-[#111113] flex flex-col">
@@ -280,7 +285,16 @@ export const ArchitectSidebar = ({
               <Folder className="h-3.5 w-3.5" />
             </button>
           </div>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80">Architect</span>
+          <input
+            type="text"
+            value={projectName}
+            onChange={(event) => onProjectNameChange(event.target.value)}
+            onBlur={() => onProjectNameChange(normalizedProjectName)}
+            className="h-7 w-[132px] rounded-md border border-white/10 bg-[#0f0f11] px-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-white/85 outline-none transition-colors focus:border-cyan-300/45"
+            aria-label="Nama project"
+            placeholder="Project Name"
+            maxLength={80}
+          />
           <span className="h-7 w-7" aria-hidden="true" />
         </div>
       </div>

@@ -58,6 +58,29 @@ const readProjectIndex = (): ProjectSummary[] => {
   return Array.isArray(parsed) ? parsed : [];
 };
 
+const getNextDefaultProjectName = () => {
+  const projects = readProjectIndex();
+  const usedNumbers = new Set<number>();
+
+  projects.forEach((project) => {
+    const normalizedName = String(project.name || "").trim();
+    const match = normalizedName.match(/^project(?:\s+(\d+))?$/i);
+    if (!match) return;
+
+    const parsedNumber = match[1] ? Number.parseInt(match[1], 10) : 1;
+    if (Number.isFinite(parsedNumber) && parsedNumber > 0) {
+      usedNumbers.add(parsedNumber);
+    }
+  });
+
+  let nextNumber = 1;
+  while (usedNumbers.has(nextNumber)) {
+    nextNumber += 1;
+  }
+
+  return `Project ${nextNumber}`;
+};
+
 const writeProjectIndex = (projects: ProjectSummary[]) => {
   if (!hasWindow()) return;
   window.localStorage.setItem(PROJECT_INDEX_KEY, JSON.stringify(projects));
@@ -116,11 +139,12 @@ export const saveProject = (project: {
   name?: string;
   nodes: StoredProjectNode[];
   edges: StoredProjectEdge[];
+  forceNewId?: boolean;
 }) => {
   if (!hasWindow()) return null;
 
   const now = new Date().toISOString();
-  const existingId = project.id || getCurrentProjectId();
+  const existingId = project.forceNewId ? null : project.id || getCurrentProjectId();
   const nextId = existingId || `project_${Date.now()}`;
   const currentProject = loadProject(nextId);
   const nextProject: StoredProject = {
@@ -154,8 +178,9 @@ export const saveProject = (project: {
 
 export const createBlankProject = () => {
   return saveProject({
-    name: "Blank",
+    name: getNextDefaultProjectName(),
     nodes: [],
     edges: [],
+    forceNewId: true,
   });
 };

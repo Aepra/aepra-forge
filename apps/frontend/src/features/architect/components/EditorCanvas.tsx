@@ -375,6 +375,8 @@ const isForeignKeyColumn = (column: any) => {
 
 interface CanvasInnerProps {
   relationArrowType: RelationArrowType;
+  projectName: string;
+  onProjectNameLoaded: (value: string) => void;
 }
 
 type HistorySnapshot = {
@@ -382,7 +384,7 @@ type HistorySnapshot = {
   edges: Edge[];
 };
 
-const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
+const CanvasInner = ({ relationArrowType, projectName, onProjectNameLoaded }: CanvasInnerProps) => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useNodesState<Node>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -392,6 +394,7 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
   const futureRef = useRef<HistorySnapshot[]>([]);
   const suspendHistoryRef = useRef(false);
   const lastSnapshotSignatureRef = useRef("");
+  const isHydratedRef = useRef(false);
   const { screenToFlowPosition } = useReactFlow();
   const [edgeContextMenu, setEdgeContextMenu] = React.useState<{
     edgeId: string;
@@ -416,13 +419,14 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
   }, []);
 
   const persistWorkspace = useCallback((workspaceName?: string) => {
+    const resolvedName = (workspaceName || projectName || "").trim() || "Untitled Project";
     saveProject({
       id: getCurrentProjectId() || undefined,
-      name: workspaceName,
+      name: resolvedName,
       nodes,
       edges,
     });
-  }, [nodes, edges]);
+  }, [nodes, edges, projectName]);
 
   const applySnapshot = useCallback(
     (snapshot: HistorySnapshot) => {
@@ -481,17 +485,42 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
 
   useEffect(() => {
     const currentProjectId = getCurrentProjectId();
-    if (!currentProjectId) return;
+    if (!currentProjectId) {
+      isHydratedRef.current = true;
+      return;
+    }
 
     const project = loadProject(currentProjectId);
-    if (!project) return;
+    if (!project) {
+      isHydratedRef.current = true;
+      return;
+    }
 
     applySnapshot(snapshotState(project.nodes as Node[], project.edges as Edge[]));
+    onProjectNameLoaded(project.name || "Untitled Project");
     lastSnapshotSignatureRef.current = JSON.stringify({
       nodes: project.nodes,
       edges: project.edges,
     });
-  }, [applySnapshot, snapshotState]);
+
+    requestAnimationFrame(() => {
+      isHydratedRef.current = true;
+    });
+  }, [applySnapshot, snapshotState, onProjectNameLoaded]);
+
+  useEffect(() => {
+    if (!isHydratedRef.current) return;
+
+    const hasCurrentProject = Boolean(getCurrentProjectId());
+    const hasCanvasData = nodes.length > 0 || edges.length > 0;
+    if (!hasCurrentProject && !hasCanvasData) return;
+
+    const timer = window.setTimeout(() => {
+      persistWorkspace(projectName);
+    }, 550);
+
+    return () => window.clearTimeout(timer);
+  }, [nodes, edges, projectName, persistWorkspace]);
 
   useEffect(() => {
     const runUndo = () => {
@@ -585,8 +614,10 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
       }
     };
 
-    const runSave = () => {
-      persistWorkspace();
+    const runSave = (event: Event) => {
+      const customEvent = event as CustomEvent<{ projectName?: string }>;
+      const eventProjectName = customEvent.detail?.projectName;
+      persistWorkspace(eventProjectName || projectName);
     };
 
     const runGenerate = async (event: Event) => {
@@ -652,7 +683,7 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
         },
       };
 
-      persistWorkspace();
+      persistWorkspace(projectName);
 
       try {
         const response = await fetch(
@@ -719,7 +750,7 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
       window.removeEventListener(ARCHITECT_EVENT_GENERATE, runGenerate as EventListener);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [nodes, edges, setNodes, applySnapshot, snapshotState, relationArrowType, persistWorkspace]);
+  }, [nodes, edges, setNodes, applySnapshot, snapshotState, relationArrowType, persistWorkspace, projectName]);
 
   const onNodeDragStart = useCallback(() => {
     if (isNodeDraggingRef.current) return;
@@ -991,8 +1022,16 @@ const CanvasInner = ({ relationArrowType }: CanvasInnerProps) => {
 
 interface EditorCanvasProps {
   relationArrowType: RelationArrowType;
+  projectName: string;
+  onProjectNameLoaded: (value: string) => void;
 }
 
-export const EditorCanvas = ({ relationArrowType }: EditorCanvasProps) => {
-  return <CanvasInner relationArrowType={relationArrowType} />;
+export const EditorCanvas = ({ relationArrowType, projectName, onProjectNameLoaded }: EditorCanvasProps) => {
+  return (
+    <CanvasInner
+      relationArrowType={relationArrowType}
+      projectName={projectName}
+      onProjectNameLoaded={onProjectNameLoaded}
+    />
+  );
 };

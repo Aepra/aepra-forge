@@ -42,8 +42,22 @@ export const ProjectsDashboard = () => {
   React.useEffect(() => {
     refreshProjects();
     const onStorage = () => refreshProjects();
+    const onFocus = () => refreshProjects();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshProjects();
+      }
+    };
+
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [refreshProjects]);
 
   const openProject = (id: string) => {

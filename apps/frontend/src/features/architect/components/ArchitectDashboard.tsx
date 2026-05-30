@@ -4,17 +4,20 @@ import React from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { ArchitectPreview, ArchitectSidebar, ArchitectToolbar } from "./dashboard";
 import { EditorCanvas } from "./EditorCanvas";
+import { getCurrentProjectId, loadProject } from "@/lib/project-storage";
 
 export type RelationArrowType = "orthogonal" | "curved";
 export type ArchitectTheme = "graphite" | "ocean" | "paper";
 
 const RELATION_ARROW_MODE_STORAGE_KEY = "architect.relationArrowType";
 const ARCHITECT_THEME_STORAGE_KEY = "architect.theme";
+const DEFAULT_PROJECT_NAME = "Untitled Project";
 
 export const ArchitectDashboard = () => {
   const [relationArrowType, setRelationArrowType] = React.useState<RelationArrowType>("curved");
   const [isPreviewVisible, setIsPreviewVisible] = React.useState(true);
   const [theme, setTheme] = React.useState<ArchitectTheme>("graphite");
+  const [projectName, setProjectName] = React.useState(DEFAULT_PROJECT_NAME);
 
   React.useEffect(() => {
     const savedMode = window.localStorage.getItem(RELATION_ARROW_MODE_STORAGE_KEY);
@@ -36,6 +39,18 @@ export const ArchitectDashboard = () => {
     window.localStorage.setItem(ARCHITECT_THEME_STORAGE_KEY, theme);
   }, [theme]);
 
+  React.useEffect(() => {
+    const activeProjectId = getCurrentProjectId();
+    if (!activeProjectId) {
+      setProjectName(DEFAULT_PROJECT_NAME);
+      return;
+    }
+
+    const activeProject = loadProject(activeProjectId);
+    const nextProjectName = activeProject?.name?.trim() || DEFAULT_PROJECT_NAME;
+    setProjectName(nextProjectName);
+  }, []);
+
   const themeClassName =
     theme === "ocean"
       ? "bg-[#061018]"
@@ -53,13 +68,19 @@ export const ArchitectDashboard = () => {
           onThemeChange={setTheme}
           isPreviewVisible={isPreviewVisible}
           onTogglePreview={() => setIsPreviewVisible((prev) => !prev)}
+          projectName={projectName}
+          onProjectNameChange={setProjectName}
         />
 
         <main className="relative flex flex-1 flex-col overflow-hidden border-x border-white/5">
           <div className="absolute left-1/2 top-6 z-50 -translate-x-1/2">
-            <ArchitectToolbar />
+            <ArchitectToolbar projectName={projectName} />
           </div>
-          <EditorCanvas relationArrowType={relationArrowType} />
+          <EditorCanvas
+            relationArrowType={relationArrowType}
+            projectName={projectName}
+            onProjectNameLoaded={setProjectName}
+          />
         </main>
 
         {isPreviewVisible && <ArchitectPreview />}
