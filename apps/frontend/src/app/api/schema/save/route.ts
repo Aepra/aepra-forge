@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
 
 import { authOptions } from "@/config/auth";
-import { prisma } from "@/lib/prisma";
+import { FileSystemProjectRepository } from "@/lib/storage/filesystem";
+import type { ProjectDocument } from "@/lib/storage/types";
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 30;
@@ -44,67 +45,84 @@ const isValidSchemaPayload = (value: unknown) => {
   return true;
 };
 
-const getSessionIdentity = async () => {
+interface SessionIdentity {
+  github_id: number;
+  username: string;
+  email: string;
+  avatar_url: string;
+}
+
+const getSessionIdentity = async (): Promise<SessionIdentity | null> => {
   const session = await getServerSession(authOptions);
-  const email = session?.user?.email;
-  if (!email) return null;
+  if (!session?.user?.id) return null;
 
   return {
-    email,
-    name: session.user?.name || null,
-    image: session.user?.image || null,
+    github_id: parseInt(session.user.id, 10) || 0,
+    username: session.user.name || "unknown",
+    email: session.user.email || "",
+    avatar_url: session.user.image || "",
   };
 };
 
 const sanitizeProjectName = (name: string) => name.trim().slice(0, 120);
+const projectRepository = new FileSystemProjectRepository();
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const identity = await getSessionIdentity();
     if (!identity) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: identity.email },
-      select: { id: true },
-    });
+    const url = new URL(request.url);
+    const projectId = url.searchParams.get("projectId");
 
-    if (!user) {
-      return NextResponse.json({ success: true, data: [] });
+    if (projectId) {
+      const project = await projectRepository.getProject(projectId);
+      if (!project || project.owner_id !== identity.github_id.toString()) {
+        return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          projectId: project.project_id,
+          projectName: project.name,
+          ownerId: project.owner_id,
+          createdAt: project.created_at,
+          updatedAt: project.updated_at,
+          nodes: project.schema.nodes,
+          edges: project.schema.edges,
+        },
+      });
     }
 
-    const projects = await prisma.project.findMany({
-      where: { user_id: user.id },
-      orderBy: { created_at: "desc" },
-      select: {
-        id: true,
-        name: true,
-        created_at: true,
-        schemas: {
-          take: 1,
-          orderBy: { created_at: "desc" },
-          select: {
-            id: true,
-            version: true,
-            created_at: true,
-          },
-        },
-      },
-    });
+    const summaries = await projectRepository.listProjects(identity.github_id.toString());
 
-    const data = projects.map((project) => ({
-      id: project.id,
-      name: project.name,
-      createdAt: project.created_at,
-      latestSchema: project.schemas[0]
-        ? {
-            id: project.schemas[0].id,
-            version: project.schemas[0].version,
-            createdAt: project.schemas[0].created_at,
-          }
-        : null,
-    }));
+    const data = [] as Array<{
+      id: string;
+      projectId: string;
+      name: string;
+      createdAt: string;
+      updatedAt: string;
+      tablesCount: number;
+      relationsCount: number;
+      isBlank: boolean;
+    }>;
+
+    for (const summary of summaries) {
+      const project = await projectRepository.getProject(summary.project_id);
+      data.push({
+        id: summary.project_id,
+        projectId: summary.project_id,
+        name: summary.name,
+        createdAt: summary.created_at,
+        updatedAt: summary.updated_at,
+        tablesCount: project?.schema.nodes.length || 0,
+        relationsCount: project?.schema.edges.length || 0,
+        isBlank: (project?.schema.nodes.length || 0) === 0,
+      });
+    }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
@@ -130,7 +148,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 });
     }
 
-    const { projectName, nodes, edges } = body as {
+    const { projectName, projectId, nodes, edges } = body as {
       projectName: string;
       projectId?: string;
       nodes: unknown[];
@@ -138,88 +156,82 @@ export async function POST(request: Request) {
     };
 
     const cleanProjectName = sanitizeProjectName(projectName);
+    const ownerId = identity.github_id.toString();
 
-    // Pastikan user login tersinkron di database aplikasi.
-    const user = await prisma.user.upsert({
-      where: { email: identity.email },
-      update: {},
-      create: {
-        email: identity.email,
-        password_hash: "oauth_only",
-      },
-    });
+    let project: ProjectDocument;
+    const now = new Date().toISOString();
 
-    const result = await prisma.$transaction(async (tx) => {
-      let project;
-
-      if (body.projectId) {
-        const existingProject = await tx.project.findFirst({
-          where: {
-            id: body.projectId,
-            user_id: user.id,
-          },
-          select: {
-            id: true,
-            name: true,
-          },
-        });
-
-        if (!existingProject) {
-          throw new Error("PROJECT_NOT_FOUND");
-        }
-
-        project = await tx.project.update({
-          where: { id: existingProject.id },
-          data: { name: cleanProjectName },
-          select: { id: true, name: true, created_at: true },
-        });
-      } else {
-        project = await tx.project.create({
-          data: {
-            name: cleanProjectName,
-            user_id: user.id,
-          },
-          select: { id: true, name: true, created_at: true },
-        });
+    if (projectId) {
+      const existingProject = await projectRepository.getProject(projectId);
+      if (!existingProject || existingProject.owner_id !== ownerId) {
+        return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
       }
 
-      const latestSchema = await tx.schema.findFirst({
-        where: { project_id: project.id },
-        orderBy: { version: "desc" },
-        select: { version: true },
-      });
-
-      const schema = await tx.schema.create({
-        data: {
-          project_id: project.id,
-          schema_json: { nodes, edges } as Prisma.InputJsonValue,
-          version: (latestSchema?.version ?? 0) + 1,
+      project = {
+        ...existingProject,
+        name: cleanProjectName,
+        updated_at: now,
+        schema: {
+          nodes,
+          edges,
         },
-        select: { id: true, version: true, created_at: true },
-      });
-
-      return {
-        project,
-        schema,
       };
-    });
+    } else {
+      const newProjectId = `proj_${randomUUID().slice(0, 8)}`;
+      project = {
+        project_id: newProjectId,
+        owner_id: ownerId,
+        name: cleanProjectName,
+        created_at: now,
+        updated_at: now,
+        schema: {
+          nodes,
+          edges,
+        },
+      };
+    }
+
+    await projectRepository.saveProject(project);
 
     return NextResponse.json({
       success: true,
       data: {
-        projectId: result.project.id,
-        projectName: result.project.name,
-        schemaId: result.schema.id,
-        schemaVersion: result.schema.version,
-        savedAt: result.schema.created_at,
+        projectId: project.project_id,
+        projectName: project.name,
+        savedAt: project.updated_at,
       },
     });
   } catch (error: unknown) {
-    if (error instanceof Error && error.message === "PROJECT_NOT_FOUND") {
+    console.error("Schema save error:", error);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const identity = await getSessionIdentity();
+    if (!identity) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const projectId = url.searchParams.get("projectId");
+    if (!projectId) {
+      return NextResponse.json({ success: false, error: "Missing projectId" }, { status: 400 });
+    }
+
+    const ownerId = identity.github_id.toString();
+
+    const project = await projectRepository.getProject(projectId);
+    if (!project || project.owner_id !== ownerId) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    console.error("Schema save error:", error);
+    await projectRepository.deleteProject(projectId);
+
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    console.error("Schema delete error:", error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

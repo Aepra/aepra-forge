@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Aepra-Forge | Visual Database Architect",
-  description: "Generate FastAPI & Docker Infrastructure visually",
+  description: "Generate FastAPI projects from visual schemas",
 };
 
 export default function RootLayout({

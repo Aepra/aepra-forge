@@ -14,8 +14,8 @@ export const Navbar = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
   
-  // Jangan tampilkan Navbar di halaman Login/Register agar fokus
-  const isAuthPage = pathname === "/login" || pathname === "/register";
+  // Jangan tampilkan Navbar di halaman Login agar fokus
+  const isAuthPage = pathname === "/login";
 
   // Cek apakah sedang di dalam Workspace Architectal (path mengandung "/architect")
   const isArchitect = pathname.includes("/architect");

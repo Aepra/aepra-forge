@@ -38,6 +38,7 @@ export type ProjectSummary = {
 const PROJECT_INDEX_KEY = "aepra.projects.index";
 const CURRENT_PROJECT_KEY = "aepra.projects.current";
 const PROJECT_PREFIX = "aepra.project.";
+const PROJECT_API_PATH = "/api/schema/save";
 
 const hasWindow = () => typeof window !== "undefined";
 
@@ -86,6 +87,111 @@ const writeProjectIndex = (projects: ProjectSummary[]) => {
   window.localStorage.setItem(PROJECT_INDEX_KEY, JSON.stringify(projects));
 };
 
+const syncProjectToServer = (project: StoredProject) => {
+  if (!hasWindow()) return;
+
+  void fetch(PROJECT_API_PATH, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      projectName: project.name,
+      projectId: project.id,
+      nodes: project.nodes,
+      edges: project.edges,
+    }),
+  }).catch(() => undefined);
+};
+
+const syncProjectDeletionToServer = (projectId: string) => {
+  if (!hasWindow()) return;
+
+  void fetch(`${PROJECT_API_PATH}?projectId=${encodeURIComponent(projectId)}`, {
+    method: "DELETE",
+  }).catch(() => undefined);
+};
+
+export const hydrateProjectSummariesFromServer = async () => {
+  if (!hasWindow()) return [] as ProjectSummary[];
+
+  try {
+    const response = await fetch(PROJECT_API_PATH, { method: "GET" });
+    if (!response.ok) return [] as ProjectSummary[];
+
+    const payload = (await response.json()) as {
+      success?: boolean;
+      data?: Array<{
+        id?: string;
+        projectId?: string;
+        name?: string;
+        createdAt?: string;
+        updatedAt?: string;
+        tablesCount?: number;
+        relationsCount?: number;
+        isBlank?: boolean;
+      }>;
+    };
+
+    const nextProjects = Array.isArray(payload.data)
+      ? payload.data
+          .map((item) => ({
+            id: item.projectId || item.id || "",
+            name: item.name || "Untitled Project",
+            createdAt: item.createdAt || new Date().toISOString(),
+            updatedAt: item.updatedAt || new Date().toISOString(),
+            tablesCount: item.tablesCount ?? 0,
+            relationsCount: item.relationsCount ?? 0,
+            isBlank: item.isBlank ?? true,
+          }))
+          .filter((project) => Boolean(project.id))
+      : [];
+
+    writeProjectIndex(nextProjects);
+    return nextProjects;
+  } catch {
+    return [] as ProjectSummary[];
+  }
+};
+
+export const hydrateProjectFromServer = async (projectId: string) => {
+  if (!hasWindow()) return null;
+
+  try {
+    const response = await fetch(`${PROJECT_API_PATH}?projectId=${encodeURIComponent(projectId)}`, { method: "GET" });
+    if (!response.ok) return null;
+
+    const payload = (await response.json()) as {
+      success?: boolean;
+      data?: {
+        projectId?: string;
+        projectName?: string;
+        createdAt?: string;
+        updatedAt?: string;
+        nodes?: StoredProjectNode[];
+        edges?: StoredProjectEdge[];
+      };
+    };
+
+    if (!payload.data?.projectId) return null;
+
+    const project: StoredProject = {
+      id: payload.data.projectId,
+      name: payload.data.projectName || "Untitled Project",
+      createdAt: payload.data.createdAt || new Date().toISOString(),
+      updatedAt: payload.data.updatedAt || new Date().toISOString(),
+      nodes: Array.isArray(payload.data.nodes) ? payload.data.nodes : [],
+      edges: Array.isArray(payload.data.edges) ? payload.data.edges : [],
+    };
+
+    window.localStorage.setItem(`${PROJECT_PREFIX}${project.id}`, JSON.stringify(project));
+    setCurrentProjectId(project.id);
+    return project;
+  } catch {
+    return null;
+  }
+};
+
 const deriveProjectName = (project: Pick<StoredProject, "nodes">) => {
   const firstNode = project.nodes.find((node) => Boolean((node.data as { label?: string } | undefined)?.label));
   const label = String((firstNode?.data as { label?: string } | undefined)?.label || "").trim();
@@ -128,6 +234,7 @@ export const deleteProject = (projectId: string) => {
   window.localStorage.removeItem(`${PROJECT_PREFIX}${projectId}`);
   const nextProjects = readProjectIndex().filter((project) => project.id !== projectId);
   writeProjectIndex(nextProjects);
+  syncProjectDeletionToServer(projectId);
 
   if (getCurrentProjectId() === projectId) {
     setCurrentProjectId(nextProjects[0]?.id ?? null);
@@ -157,6 +264,7 @@ export const saveProject = (project: {
   };
 
   window.localStorage.setItem(`${PROJECT_PREFIX}${nextId}`, JSON.stringify(nextProject));
+  syncProjectToServer(nextProject);
 
   const nextSummary: ProjectSummary = {
     id: nextProject.id,

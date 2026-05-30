@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import {
   createBlankProject,
   deleteProject,
+  hydrateProjectSummariesFromServer,
   loadProjectSummaries,
   setCurrentProjectId,
   type ProjectSummary,
@@ -41,6 +42,10 @@ export const ProjectsDashboard = () => {
 
   React.useEffect(() => {
     refreshProjects();
+    void hydrateProjectSummariesFromServer()
+      .then(() => refreshProjects())
+      .catch(() => undefined);
+
     const onStorage = () => refreshProjects();
     const onFocus = () => refreshProjects();
     const onVisibilityChange = () => {

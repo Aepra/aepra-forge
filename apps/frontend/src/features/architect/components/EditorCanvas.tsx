@@ -26,7 +26,7 @@ import "@xyflow/react/dist/style.css";
 import { ArchitectTableNode } from "@/features/architect/components/schema";
 import type { RelationArrowType } from "../index";
 import OrthogonalEditableEdge from "./edges/OrthogonalEditableEdge";
-import { loadProject, saveProject, getCurrentProjectId } from "@/lib/project-storage";
+import { getCurrentProjectId, hydrateProjectFromServer, loadProject, saveProject } from "@/lib/project-storage";
 
 const initialNodes: Node[] = [];
 const MIN_TABLE_PASSAGE_GAP = 48;
@@ -492,7 +492,21 @@ const CanvasInner = ({ relationArrowType, projectName, onProjectNameLoaded }: Ca
 
     const project = loadProject(currentProjectId);
     if (!project) {
-      isHydratedRef.current = true;
+      void hydrateProjectFromServer(currentProjectId)
+        .then((hydratedProject) => {
+          if (!hydratedProject) return;
+          applySnapshot(snapshotState(hydratedProject.nodes as Node[], hydratedProject.edges as Edge[]));
+          onProjectNameLoaded(hydratedProject.name || "Untitled Project");
+          lastSnapshotSignatureRef.current = JSON.stringify({
+            nodes: hydratedProject.nodes,
+            edges: hydratedProject.edges,
+          });
+        })
+        .finally(() => {
+          requestAnimationFrame(() => {
+            isHydratedRef.current = true;
+          });
+        });
       return;
     }
 
@@ -693,7 +707,11 @@ const CanvasInner = ({ relationArrowType, projectName, onProjectNameLoaded }: Ca
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(blueprint),
+            body: JSON.stringify({
+              projectId: getCurrentProjectId() || undefined,
+              projectName,
+              ...blueprint,
+            }),
           }
         );
 

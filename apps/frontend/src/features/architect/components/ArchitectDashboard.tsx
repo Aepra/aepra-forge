@@ -4,7 +4,7 @@ import React from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { ArchitectPreview, ArchitectSidebar, ArchitectToolbar } from "./dashboard";
 import { EditorCanvas } from "./EditorCanvas";
-import { getCurrentProjectId, loadProject } from "@/lib/project-storage";
+import { getCurrentProjectId, hydrateProjectFromServer, loadProject } from "@/lib/project-storage";
 
 export type RelationArrowType = "orthogonal" | "curved";
 export type ArchitectTheme = "graphite" | "ocean" | "paper";
@@ -47,8 +47,19 @@ export const ArchitectDashboard = () => {
     }
 
     const activeProject = loadProject(activeProjectId);
-    const nextProjectName = activeProject?.name?.trim() || DEFAULT_PROJECT_NAME;
-    setProjectName(nextProjectName);
+    if (activeProject) {
+      const nextProjectName = activeProject?.name?.trim() || DEFAULT_PROJECT_NAME;
+      setProjectName(nextProjectName);
+      return;
+    }
+
+    void hydrateProjectFromServer(activeProjectId)
+      .then((project) => {
+        setProjectName(project?.name?.trim() || DEFAULT_PROJECT_NAME);
+      })
+      .catch(() => {
+        setProjectName(DEFAULT_PROJECT_NAME);
+      });
   }, []);
 
   const themeClassName =

@@ -21,7 +21,7 @@ Frontend menampilkan dashboard, project list, dan editor visual. Backend menyedi
 - `backend/app/schemas/blueprint.py` berisi model `ProjectBlueprint`
 - `apps/frontend/` berisi aplikasi Next.js
 
-Folder `apps/backend` sudah dihapus, jadi backend sekarang ada di root project.
+Backend sekarang ada di root folder `backend/`.
 
 ## Backend Yang Ada Sekarang
 
@@ -144,7 +144,6 @@ Jadi frontend adalah UI utama, sedangkan backend adalah API FastAPI yang dipangg
 
 ## Catatan Saat Ini
 
-- Backend sekarang sudah dipindah ke root `backend/`
-- Folder `apps/backend` sudah dihapus
+- Backend ada di root `backend/`
 - Generator backend masih stub, jadi output ZIP yang ada sekarang masih placeholder
-- Penjelasan di file ini tidak menambahkan fitur yang tidak ditemukan di file yang diperiksa
+- Penjelasan di file ini hanya memakai file yang benar-benar ada sekarang
