@@ -20,8 +20,15 @@ import type {
 export class FileSystemProjectRepository implements ProjectRepository {
   private baseDir: string;
 
-  constructor(baseDir: string = ".local-storage") {
-    this.baseDir = baseDir;
+  constructor(baseDir?: string) {
+    // Use absolute path to ensure consistency across different execution contexts
+    if (baseDir) {
+      this.baseDir = baseDir;
+    } else {
+      // Default to process.cwd()/.local-storage for consistent path resolution
+      const cwd = typeof process !== 'undefined' ? process.cwd() : '';
+      this.baseDir = join(cwd, ".local-storage");
+    }
   }
 
   private projectsDir(): string {
@@ -35,20 +42,31 @@ export class FileSystemProjectRepository implements ProjectRepository {
   async getProject(projectId: string): Promise<ProjectDocument | null> {
     try {
       const filePath = this.projectPath(projectId);
+      console.log("[FileSystemProjectRepository.getProject]", { projectId, filePath });
       const content = await fs.readFile(filePath, "utf-8");
-      return JSON.parse(content) as ProjectDocument;
-    } catch {
+      const project = JSON.parse(content) as ProjectDocument;
+      console.log("[FileSystemProjectRepository.getProject] SUCCESS", { projectId, owner_id: project.owner_id });
+      return project;
+    } catch (error) {
+      console.warn("[FileSystemProjectRepository.getProject] ERROR", { projectId, error: String(error) });
       return null;
     }
   }
 
   async saveProject(project: ProjectDocument): Promise<void> {
     const dirPath = this.projectsDir();
+    console.log("[FileSystemProjectRepository.saveProject]", { 
+      projectId: project.project_id, 
+      owner_id: project.owner_id,
+      baseDir: this.baseDir,
+      dirPath,
+    });
     await fs.mkdir(dirPath, { recursive: true });
 
     const filePath = this.projectPath(project.project_id);
     const content = JSON.stringify(project, null, 2);
     await fs.writeFile(filePath, content, "utf-8");
+    console.log("[FileSystemProjectRepository.saveProject] SUCCESS", { projectId: project.project_id, filePath });
   }
 
   async deleteProject(projectId: string): Promise<void> {

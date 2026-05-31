@@ -8,6 +8,7 @@ from collections import defaultdict, deque
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.backand.generator import build_fastapi_project_zip
@@ -19,6 +20,12 @@ app = FastAPI(
     description="The Professional Backend Generator",
     version="1.0.0"
 )
+
+
+# Global preflight handler: respond to any OPTIONS request before route-level validation
+@app.options("/{rest_of_path:path}")
+async def _preflight(rest_of_path: str):
+    return Response(status_code=200)
 
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("AEPRA_BUILD_RATE_LIMIT_WINDOW_SECONDS", "60"))
 RATE_LIMIT_MAX_REQUESTS = int(os.getenv("AEPRA_BUILD_RATE_LIMIT_MAX_REQUESTS", "12"))
@@ -74,10 +81,21 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    # Allow all common HTTP methods (including DELETE) to support frontend preflight
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=TRUSTED_HOSTS)
+
+# Initialize database and mount routers (after app creation to avoid circular imports)
+try:
+    from app.database.db import init_db
+    from app.api import projects as projects_router
+    
+    init_db()
+    app.include_router(projects_router.router)
+except Exception as e:
+    print(f"⚠ Error initializing database/routers: {e}")
 
 # Mount the unified backand router (users, identities, products, admin)
 app.include_router(backand_router, prefix="/api/v1")

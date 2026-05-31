@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   createBlankProject,
   deleteProject,
@@ -35,6 +36,9 @@ const formatDate = (value: string) => {
 export const ProjectsDashboard = () => {
   const router = useRouter();
   const [projects, setProjects] = React.useState<ProjectSummary[]>([]);
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [projectToDelete, setProjectToDelete] = React.useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   const refreshProjects = React.useCallback(() => {
     setProjects(loadProjectSummaries());
@@ -70,16 +74,34 @@ export const ProjectsDashboard = () => {
     router.push("/architect");
   };
 
-  const createBlank = () => {
-    const project = createBlankProject();
+  const createBlank = async () => {
+    const project = await createBlankProject();
     if (project) {
       router.push("/architect");
     }
   };
 
-  const handleDelete = (id: string) => {
-    deleteProject(id);
-    refreshProjects();
+  const handleDelete = (id: string, name: string) => {
+    setProjectToDelete({ id, name });
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!projectToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await deleteProject(projectToDelete.id);
+      console.log("✓ Project deleted:", projectToDelete.id);
+      refreshProjects();
+      setShowDeleteDialog(false);
+      setProjectToDelete(null);
+    } catch (error) {
+      console.error("✗ Error deleting project:", error);
+      alert("Gagal menghapus project. Silahkan coba lagi.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const onGoBack = () => {
@@ -185,7 +207,7 @@ export const ProjectsDashboard = () => {
                     <Database className="h-4 w-4" />
                   </div>
                   <button
-                    onClick={() => handleDelete(project.id)}
+                    onClick={() => handleDelete(project.id, project.name)}
                     className="rounded-lg p-1.5 text-zinc-700 opacity-0 transition-all hover:text-red-400 group-hover:opacity-100"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -216,6 +238,19 @@ export const ProjectsDashboard = () => {
           </div>
         </main>
       </div>
+
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        title="Delete Project?"
+        message={`Apakah kamu yakin ingin menghapus project "${projectToDelete?.name}"? Project ini akan dihapus secara permanen dari database.`}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setShowDeleteDialog(false);
+          setProjectToDelete(null);
+        }}
+        confirmLabel={isDeleting ? "Menghapus..." : "Delete"}
+        cancelLabel="Cancel"
+      />
     </div>
   );
 };

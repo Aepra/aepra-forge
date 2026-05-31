@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import { createPortal } from "react-dom";
-import { Download, LayoutGrid, Play, Redo2, Save, Undo2, Upload, X } from "lucide-react";
+import { Download, LayoutGrid, Play, Redo2, Save, Undo2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const ARCHITECT_EVENT_UNDO = "architect:undo";
@@ -20,12 +19,6 @@ interface ArchitectToolbarProps {
 export const ArchitectToolbar = ({ projectName }: ArchitectToolbarProps) => {
   const importInputRef = React.useRef<HTMLInputElement>(null);
   const [framework, setFramework] = React.useState("fastapi");
-  const [isSaveConfirmOpen, setIsSaveConfirmOpen] = React.useState(false);
-  const [isMounted, setIsMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const emitEvent = (eventName: string, detail?: unknown) => {
     window.dispatchEvent(new CustomEvent(eventName, { detail }));
@@ -65,7 +58,7 @@ export const ArchitectToolbar = ({ projectName }: ArchitectToolbarProps) => {
       </Button>
       <input ref={importInputRef} type="file" accept="application/json" className="hidden" onChange={onImportFile} />
       <div className="w-[1px] h-4 bg-white/10" />
-      <Button variant="ghost" size="sm" className="rounded-full h-8 px-4 text-xs gap-2" onClick={() => setIsSaveConfirmOpen(true)}>
+      <Button variant="ghost" size="sm" className="rounded-full h-8 px-4 text-xs gap-2" onClick={() => emitEvent(ARCHITECT_EVENT_SAVE)}>
         <Save className="w-3.5 h-3.5" /> Save Project
       </Button>
       <select
@@ -84,60 +77,6 @@ export const ArchitectToolbar = ({ projectName }: ArchitectToolbarProps) => {
       >
         <Play className="w-3.5 h-3.5 fill-current" /> Generate Code
       </Button>
-
-      {isMounted &&
-        isSaveConfirmOpen &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[1400] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-            onClick={() => setIsSaveConfirmOpen(false)}
-          >
-            <div
-              className="w-full max-w-md rounded-xl border border-white/15 bg-[#111115] p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white">Save Project</h3>
-                <button
-                  type="button"
-                  onClick={() => setIsSaveConfirmOpen(false)}
-                  className="rounded-md p-1 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-                  aria-label="Tutup konfirmasi save"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <p className="mb-4 text-[12px] leading-relaxed text-white/70">
-                Yakin mau save project ini ke daftar project?
-              </p>
-              <p className="mb-4 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-white/70">
-                Nama project: <span className="font-semibold text-cyan-200">{projectName.trim() || "Untitled Project"}</span>
-              </p>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsSaveConfirmOpen(false)}
-                  className="rounded-md px-4 py-2 text-sm text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSaveConfirmOpen(false);
-                    emitEvent(ARCHITECT_EVENT_SAVE, { projectName: projectName.trim() || "Untitled Project" });
-                  }}
-                  className="rounded-md bg-cyan-300 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-cyan-200"
-                >
-                  Yakin
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
     </div>
   );
 };

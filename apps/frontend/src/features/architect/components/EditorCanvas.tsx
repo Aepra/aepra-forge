@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useCallback, useRef, useMemo, useEffect } from "react";
+import React, { useCallback, useRef, useMemo, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ReactFlow,
   Background,
@@ -24,6 +25,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { ArchitectTableNode } from "@/features/architect/components/schema";
+import { SaveProjectDialog } from "@/components/ui/SaveProjectDialog";
 import type { RelationArrowType } from "../index";
 import OrthogonalEditableEdge from "./edges/OrthogonalEditableEdge";
 import { getCurrentProjectId, hydrateProjectFromServer, loadProject, saveProject } from "@/lib/project-storage";
@@ -385,6 +387,9 @@ type HistorySnapshot = {
 };
 
 const CanvasInner = ({ relationArrowType, projectName, onProjectNameLoaded }: CanvasInnerProps) => {
+  const router = useRouter();
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [savingProjectName, setSavingProjectName] = useState(projectName);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useNodesState<Node>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -418,9 +423,9 @@ const CanvasInner = ({ relationArrowType, projectName, onProjectNameLoaded }: Ca
     };
   }, []);
 
-  const persistWorkspace = useCallback((workspaceName?: string) => {
+  const persistWorkspace = useCallback(async (workspaceName?: string) => {
     const resolvedName = (workspaceName || projectName || "").trim() || "Untitled Project";
-    saveProject({
+    await saveProject({
       id: getCurrentProjectId() || undefined,
       name: resolvedName,
       nodes,
@@ -536,6 +541,25 @@ const CanvasInner = ({ relationArrowType, projectName, onProjectNameLoaded }: Ca
     return () => window.clearTimeout(timer);
   }, [nodes, edges, projectName, persistWorkspace]);
 
+  const handleConfirmSave = useCallback(async (newProjectName: string) => {
+    try {
+      await persistWorkspace(newProjectName);
+      setShowSaveDialog(false);
+      // Redirect to projects page after save
+      setTimeout(() => {
+        router.push("/projects");
+      }, 500);
+    } catch (error) {
+      console.error("[EditorCanvas] Save failed:", error);
+      // Keep dialog open on error, user can try again
+    }
+  }, [persistWorkspace, router]);
+
+  const runSave = useCallback((event?: Event) => {
+    setSavingProjectName(projectName);
+    setShowSaveDialog(true);
+  }, [projectName]);
+
   useEffect(() => {
     const runUndo = () => {
       if (historyRef.current.length < 2) return;
@@ -626,12 +650,6 @@ const CanvasInner = ({ relationArrowType, projectName, onProjectNameLoaded }: Ca
 
         applySnapshot(snapshotState(importedNodes, importedEdges));
       }
-    };
-
-    const runSave = (event: Event) => {
-      const customEvent = event as CustomEvent<{ projectName?: string }>;
-      const eventProjectName = customEvent.detail?.projectName;
-      persistWorkspace(eventProjectName || projectName);
     };
 
     const runGenerate = async (event: Event) => {
@@ -768,7 +786,7 @@ const CanvasInner = ({ relationArrowType, projectName, onProjectNameLoaded }: Ca
       window.removeEventListener(ARCHITECT_EVENT_GENERATE, runGenerate as EventListener);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [nodes, edges, setNodes, applySnapshot, snapshotState, relationArrowType, persistWorkspace, projectName]);
+  }, [nodes, edges, setNodes, applySnapshot, snapshotState, relationArrowType, persistWorkspace, projectName, runSave]);
 
   const onNodeDragStart = useCallback(() => {
     if (isNodeDraggingRef.current) return;
@@ -967,7 +985,14 @@ const CanvasInner = ({ relationArrowType, projectName, onProjectNameLoaded }: Ca
   }, [edgeContextMenu, setEdges]);
 
   return (
-    <div className="flex-1 w-full h-full relative" ref={reactFlowWrapper}>
+    <>
+      <SaveProjectDialog
+        isOpen={showSaveDialog}
+        initialName={savingProjectName}
+        onConfirm={handleConfirmSave}
+        onCancel={() => setShowSaveDialog(false)}
+      />
+      <div className="flex-1 w-full h-full relative" ref={reactFlowWrapper}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -1035,6 +1060,7 @@ const CanvasInner = ({ relationArrowType, projectName, onProjectNameLoaded }: Ca
         />
       )}
     </div>
+    </>
   );
 };
 

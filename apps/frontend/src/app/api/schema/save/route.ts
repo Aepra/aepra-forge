@@ -77,9 +77,20 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const projectId = url.searchParams.get("projectId");
 
+    console.log("[GET /api/schema/save]", {
+      projectId: projectId || "list",
+      ownerId: identity.github_id.toString(),
+      username: identity.username,
+    });
+
     if (projectId) {
       const project = await projectRepository.getProject(projectId);
       if (!project || project.owner_id !== identity.github_id.toString()) {
+        console.warn("[GET /api/schema/save] Project not found", {
+          projectId,
+          found: !!project,
+          ownerMatch: project?.owner_id === identity.github_id.toString(),
+        });
         return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
       }
 
@@ -98,6 +109,10 @@ export async function GET(request: Request) {
     }
 
     const summaries = await projectRepository.listProjects(identity.github_id.toString());
+    console.log("[GET /api/schema/save] Listed projects", {
+      count: summaries.length,
+      ownerId: identity.github_id.toString(),
+    });
 
     const data = [] as Array<{
       id: string;
@@ -158,12 +173,28 @@ export async function POST(request: Request) {
     const cleanProjectName = sanitizeProjectName(projectName);
     const ownerId = identity.github_id.toString();
 
+    console.log("[POST /api/schema/save]", {
+      projectId,
+      projectName: cleanProjectName,
+      ownerId,
+      github_id: identity.github_id,
+      username: identity.username,
+      nodesCount: nodes.length,
+      edgesCount: edges.length,
+    });
+
     let project: ProjectDocument;
     const now = new Date().toISOString();
 
     if (projectId) {
       const existingProject = await projectRepository.getProject(projectId);
       if (!existingProject || existingProject.owner_id !== ownerId) {
+        console.error("[POST /api/schema/save] Project not found or ownership mismatch", {
+          projectId,
+          existingProject: !!existingProject,
+          existingOwnerId: existingProject?.owner_id,
+          currentOwnerId: ownerId,
+        });
         return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
       }
 
